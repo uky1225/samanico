@@ -385,12 +385,54 @@
     .hidden {
       display: none !important;
     }
+
+    /* 📌 실시간 공지사항 스타일 추가 */
+    #globalNoticeBtn {
+      position: absolute;
+      top: 25px;
+      right: 230px; /* SCORE UI 왼쪽에 나란히 배치 */
+      padding: 8px 16px;
+      background-color: #ff9800;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 15px;
+      z-index: 15;
+      font-family: 'Noto Serif KR', serif;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    #globalNoticeBtn:hover {
+      background-color: #e65100;
+      transform: scale(1.05);
+    }
+
+    .notice-list {
+      list-style: none;
+      padding: 0;
+      margin: 15px 0;
+      width: 100%;
+    }
+
+    .notice-list li {
+      padding: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 15px;
+      line-height: 1.6;
+      color: #ffffff;
+      text-align: left;
+    }
   </style>
 </head>
 
 <body>
 
   <div id="gameContainer">
+    <button id="globalNoticeBtn" onclick="openGlobalNotice(event)">📢 공지사항</button>
+
     <div id="scoreBoard">SCORE <span id="scoreValue">0</span></div>
     <div id="progressContainer">
       <div id="progressBar"></div>
@@ -399,6 +441,16 @@
     </div>
     <div id="bossWarning">⚠ BOSS STAGE ⚠</div>
     <canvas id="gameCanvas" width="1200" height="675"></canvas>
+
+    <div id="globalNoticeScreen" class="overlayScreen hidden">
+      <h1 style="font-size: 42px; margin-bottom: 25px;">📢 실시간 사막 소식</h1>
+      <div class="manual-content" style="width: 500px; max-height: 350px; overflow-y: auto;">
+        <ul id="globalNoticeList" class="notice-list">
+          <li>공지사항을 가져오는 중입니다...</li>
+        </ul>
+      </div>
+      <button onclick="closeGlobalNotice(event)" class="ui-button">닫기</button>
+    </div>
 
     <div id="startScreen" class="overlayScreen">
       <h1>여정의 시작</h1>
@@ -488,6 +540,9 @@
   </div>
 
   <script>
+    // 📢 [중요] 여기에 '웹에 게시'로 뽑아낸 구글 시트 CSV 주소를 붙여넣어주세요!
+    const GOOGLE_SHEET_CSV_URL = "YOUR_GOOGLE_SHEET_CSV_URL_HERE";
+
     const SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyAdjdfX0DK3v4VvUtMJf1UeAABnaR3kljhrSPIJbaPDyWyw-vm_MfudPwPseU-X0WQFw/exec";
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -499,6 +554,7 @@
     const gameOverScreen = document.getElementById('gameOverScreen');
     const howToPlayScreen = document.getElementById('howToPlayScreen');
     const settingsScreen = document.getElementById('settingsScreen');
+    const globalNoticeScreen = document.getElementById('globalNoticeScreen');
     const howToPlayBtn = document.getElementById('howToPlayBtn');
     const closeHowToPlayBtn = document.getElementById('closeHowToPlayBtn');
     const settingsBtn = document.getElementById('settingsBtn');
@@ -576,6 +632,60 @@
     player.y = groundY - player.height;
     let obstacles = [];
     let dunes = [];
+
+    // 📢 실시간 공지사항 모달 열기 함수 (F열 파싱 포함)
+    async function openGlobalNotice(e) {
+      if (e) e.stopPropagation();
+      
+      const listContainer = document.getElementById('globalNoticeList');
+      globalNoticeScreen.classList.remove('hidden');
+      listContainer.innerHTML = '<li>최신 사막 소식을 불러오는 중...</li>';
+
+      if (!GOOGLE_SHEET_CSV_URL || GOOGLE_SHEET_CSV_URL.includes("YOUR_GOOGLE_SHEET")) {
+        listContainer.innerHTML = '<li style="color:#ffe600;">[설정 필요] 코드 상단의 GOOGLE_SHEET_CSV_URL 주소를 등록해주세요.</li>';
+        return;
+      }
+
+      try {
+        // 주소에 타임스탬프를 덧붙여 브라우저 캐시를 무효화하고 실시간 데이터를 가져옵니다.
+        const response = await fetch(`${GOOGLE_SHEET_CSV_URL}?t=${Date.now()}`);
+        const data = await response.text();
+        
+        // CSV 줄 단위 파싱
+        const lines = data.split(/\r?\n/);
+        listContainer.innerHTML = ''; 
+
+        let hasNotice = false;
+
+        lines.forEach(line => {
+          // CSV 각 줄을 쉼표로 분할
+          const columns = line.split(',');
+          // F열은 6번째 인덱스 (A=0, B=1, C=2, D=3, E=4, F=5)
+          if (columns.length >= 6) {
+            let cellValue = columns[5].replace(/^"|"$/g, '').trim(); // 따옴표 제거 및 공백 처리
+            if (cellValue && cellValue !== "" && cellValue !== "F") { // 헤더 문자열 "F" 제외
+              const li = document.createElement('li');
+              li.textContent = cellValue;
+              listContainer.appendChild(li);
+              hasNotice = true;
+            }
+          }
+        });
+
+        if (!hasNotice) {
+          listContainer.innerHTML = '<li>등록된 공지사항이 없습니다. (F열을 확인해보세요)</li>';
+        }
+      } catch (error) {
+        console.error('공지 로드 실패:', error);
+        listContainer.innerHTML = '<li style="color:#ff0055;">소식을 불러오지 못했습니다. 웹에 게시 설정 또는 네트워크를 확인해주세요.</li>';
+      }
+    }
+
+    // 📢 실시간 공지사항 모달 닫기 함수
+    function closeGlobalNotice(e) {
+      if (e) e.stopPropagation();
+      globalNoticeScreen.classList.add('hidden');
+    }
 
     function resizeGame() {
       const targetWidth = 1200;
@@ -788,7 +898,7 @@
     
     gameContainer.addEventListener('mousedown', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
-      if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden')) return;
+      if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden') || !globalNoticeScreen.classList.contains('hidden')) return;
       if (gameState === 'START' || gameState === 'GAMEOVER') {
         if (recordSection.style.display !== 'none' && gameState === 'GAMEOVER') return;
         startGame();
@@ -879,7 +989,7 @@
           player.y -= (player.normalHeight - player.crouchHeight);
         }
       }
-      if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden')) return;
+      if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden') || !globalNoticeScreen.classList.contains('hidden')) return;
       const touch = e.changedTouches[0];
       const diffX = touch.clientX - touchStartX;
       const diffY = touch.clientY - touchStartY;
@@ -916,6 +1026,10 @@
       }
       if (!settingsScreen.classList.contains('hidden')) {
         if (e.code === 'Escape' || e.key === 'Escape') closeSettingsBtn.click();
+        return;
+      }
+      if (!globalNoticeScreen.classList.contains('hidden')) {
+        if (e.code === 'Escape' || e.key === 'Escape') closeGlobalNotice();
         return;
       }
       if (e.code === 'Escape' || e.key === 'Escape') {
@@ -1332,7 +1446,7 @@
 
     function startGame() {
       if (gameState === 'GAMEOVER' && recordSection.style.display !== 'none' && recordSection.style.display !== '') return;
-      if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden')) return;
+      if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden') || !globalNoticeScreen.classList.contains('hidden')) return;
       gameState = 'PLAYING';
       score = 0;
       baseGameSpeed = 6.5;
@@ -1377,6 +1491,7 @@
       gameOverScreen.classList.add('hidden');
       howToPlayScreen.classList.add('hidden');
       settingsScreen.classList.add('hidden');
+      globalNoticeScreen.classList.add('hidden');
       bossWarningUI.classList.remove('warning-active');
       drawBackground();
       updateAndDrawDunes();
