@@ -1,8 +1,12 @@
-const CACHE_NAME = 'desert-odyssey-v1';
+const CACHE_NAME = 'desert-odyssey-v2'; // 👈 버전을 v2로 올려서 브라우저가 새 페이지를 감지하도록 합니다.
 const ASSETS = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './notice/',           // 👈 공지사항 폴더 경로 추가
+  './notice/index.html',  // 👈 공지사항 파일 경로 추가
+  './ranking/',          // 👈 랭킹 폴더 경로 추가
+  './ranking/index.html'  // 👈 랭킹 파일 경로 추가
 ];
 
 // 1. 서비스워커 설치 시 지정된 리소스 캐싱 저장
@@ -16,7 +20,7 @@ self.addEventListener('install', (e) => {
 
 // 2. 네트워크 요청 가로채기 (네트워크 가로채기 분기처리)
 self.addEventListener('fetch', (e) => {
-  // ★ 글로벌 랭킹 통신(kvdb)이나 깃허브 공지는 캐시를 거치지 않고 실시간 네트워크 강제 조회
+  // ★ 글로벌 랭킹 통신(kvdb)이나 깃허브 공지 데이터는 캐시를 거치지 않고 실시간 네트워크 강제 조회
   if (e.request.url.includes('githubusercontent.com') || e.request.url.includes('kvdb.io')) {
     e.respondWith(
       fetch(e.request).catch(() => {
