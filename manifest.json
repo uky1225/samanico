@@ -1,21 +1,9 @@
 {
-  "name": "사막 오디세이 (Desert Odyssey)",
-  "short_name": "사막오디세이",
+  "name": "Desert Odyssey",
+  "short_name": "Desert",
   "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#222222",
-  "theme_color": "#e67e22",
-  "orientation": "portrait",
-  "icons": [
-    {
-      "src": "https://via.placeholder.com/192",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "https://via.placeholder.com/512",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
+  "display": "fullscreen",
+  "background_color": "#0b0c10",
+  "theme_color": "#d46c63",
+  "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/3069/3069172.png", "sizes": "192x192", "type": "image/png" }]
 }
