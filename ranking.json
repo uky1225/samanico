@@ -1,0 +1,23 @@
+{
+  "lastUpdated": "2026-07-10",
+  "topPlayers": [
+    {
+      "rank": 1,
+      "name": "전설의용사",
+      "score": 99990,
+      "character": "검사"
+    },
+    {
+      "rank": 2,
+      "name": "모험가A",
+      "score": 85000,
+      "character": "마법사"
+    },
+    {
+      "rank": 3,
+      "name": "초보자123",
+      "score": 12000,
+      "character": "궁수"
+    }
+  ]
+}
