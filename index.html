@@ -5,6 +5,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Journey of the Sands (Desert Odyssey)</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(() => console.log("오프라인 모드 활성화됨"));
+    }
+  </script>
+
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;700&display=swap" rel="stylesheet">
   <style>
     /* 브라우저 기본 제스처 완벽 차단 CSS */
@@ -21,7 +30,7 @@
       background-color: #0b0c10;
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: center; /* 복사 오류 수정됨 */
       overflow: hidden;
       font-family: 'Noto Serif KR', serif;
       user-select: none;
@@ -446,55 +455,12 @@
       color: #ffffff;
       text-align: left;
     }
-
-    /* 실시간 자동 업데이트 알림 바 스타일 */
-    #updateBanner {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background: linear-gradient(90deg, #00f3ff, #ffe600);
-      color: #0b0c10;
-      text-align: center;
-      padding: 12px 0;
-      font-weight: 700;
-      font-size: 15px;
-      z-index: 40;
-      letter-spacing: 1px;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 15px;
-    }
-
-    #updateBanner button {
-      padding: 4px 14px;
-      background: #0b0c10;
-      color: #00f3ff;
-      border: none;
-      border-radius: 4px;
-      font-weight: bold;
-      cursor: pointer;
-      font-family: 'Noto Serif KR', serif;
-      transition: background 0.2s, color 0.2s;
-    }
-
-    #updateBanner button:hover {
-      background: #ff0055;
-      color: white;
-    }
   </style>
-</head>head
+</head>
 
 <body>
 
   <div id="gameContainer">
-    <div id="updateBanner" class="hidden">
-      🚀 새로운 사막 업데이트 버전이 감지되었습니다! 
-      <button onclick="applyUpdate(event)">지금 반영하기</button>
-    </div>
-
     <div id="scoreBoard">SCORE <span id="scoreValue">0</span></div>
     <div id="progressContainer">
       <div id="progressBar"></div>
@@ -632,9 +598,7 @@
   </div>
 
   <script>
-    // --- 고유 버전을 선언하여 가상 빌드 관리 (자동 업데이트 비교용) ---
-    const GAME_VERSION = "1.0.0"; 
-
+    // --- 추가된 오차 보정 타이머 함수 ---
     function accurateTimer(callback, interval) {
       let expected = Date.now() + interval;
       let timeoutId;
@@ -648,7 +612,7 @@
       timeoutId = setTimeout(step, interval);
       return () => clearTimeout(timeoutId);
     }
-    
+    // --------------------------------
     const GOOGLE_SHEET_CSV_URL = "https://script.google.com/macros/s/AKfycbzBXe9QYuHaZTjfwMazjb-FkLjWt8c-OjkyQOr2DmS3kx2EGM7vvFy5bOl7_2CQGSkgag/exec";
     const SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyAdjdfX0DK3v4VvUtMJf1UeAABnaR3kljhrSPIJbaPDyWyw-vm_MfudPwPseU-X0WQFw/exec";
     const canvas = document.getElementById('gameCanvas');
@@ -737,16 +701,17 @@
     player.y = groundY - player.height;
     let obstacles = [];
     let dunes = [];
-    
+    /* --- 개선된 오디오 시스템 (마스터/개별 볼륨 및 부드러운 점프음) --- */
     let audioCtx = null;
     let stopBgmTimer = null;
+    // 볼륨 관리 객체 (0.0 ~ 1.0 비율)
     const audioVolumes = {
       master: 0.5,
       normalBgm: 0.5,
       bossBgm: 0.5,
       jump: 0.5,
       death: 0.5,
-      sfx: 0.5,
+      sfx: 0.5, // 공격, 피격 등 기타 효과음
     };
 
     function initAudio() {
@@ -760,9 +725,10 @@
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.connect(gain);
-      gain.connect(audioCtx.destination);
+      gain.connect(audioCtx.destination); // 볼륨을 개별로 계산하므로 destination에 직결
       const time = audioCtx.currentTime;
       if (type === 'jump') {
+        // 점프 소리를 짧고 부드럽게(sine) 변경하여 배경음악과 조화롭게 만듦
         let effVol = audioVolumes.master * audioVolumes.jump * 0.15;
         osc.type = 'sine';
         osc.frequency.setValueAtTime(300, time);
@@ -819,6 +785,7 @@
         const isBoss = (gameState === 'BOSS_BATTLE');
         osc.type = isBoss ? 'sawtooth' : 'triangle';
         const currentNotes = isBoss ? bossNotes : normalNotes;
+        // 마스터 볼륨과 개별 볼륨의 곱으로 최종 볼륨 계산 (비율 유지)
         let specificVol = isBoss ? audioVolumes.bossBgm : audioVolumes.normalBgm;
         let effVol = audioVolumes.master * specificVol * 0.25;
         osc.frequency.setValueAtTime(currentNotes[step % currentNotes.length], audioCtx.currentTime);
@@ -829,7 +796,6 @@
         step++;
       }, 400);
     }
-
     async function openGlobalNotice(e) {
       if (e) e.stopPropagation();
       const listContainer = document.getElementById('globalNoticeList');
@@ -860,7 +826,6 @@
         listContainer.innerHTML = '<li style="color:#ff0055;">소식을 불러오지 못했습니다. 앱스 스크립트 웹앱 주소 및 배포 상태를 확인해주세요.</li>';
       }
     }
-
     async function checkNewNotices() {
       const badge = document.getElementById('noticeBadge');
       try {
@@ -877,26 +842,6 @@
       } catch (err) {
         console.error("공지 확인 실패:", err);
       }
-    }
-
-    // --- [추가 기능 1] 새로고침 없이 백그라운드 실시간 업데이트 감지 로직 ---
-    async function checkGameUpdate() {
-      try {
-        // 웹앱에 action=getVersion을 호출하여 가상 시트 서버에 등록된 최신 버전 문자열을 대조합니다.
-        const response = await fetch(`${SHEET_WEB_APP_URL}?action=getVersion&t=${Date.now()}`);
-        const data = await response.json();
-        if (data && data.version && data.version !== GAME_VERSION) {
-          document.getElementById('updateBanner').classList.remove('hidden');
-        }
-      } catch (err) {
-        console.log("업데이트 확인 대기 중 (네트워크 보류)");
-      }
-    }
-
-    function applyUpdate(e) {
-      if (e) e.stopPropagation();
-      // 브라우저의 무거운 캐시 데이터를 우회하여 클라이언트를 강제 최신화합니다.
-      window.location.reload();
     }
 
     function closeGlobalNotice(e) {
@@ -919,10 +864,23 @@
 
     function translateKeyToKorean(keyCode) {
       const map = {
-        'ArrowLeft': '←', 'ArrowRight': '→', 'ArrowUp': '↑', 'ArrowDown': '↓', 'Space': '스페이스바',
-        'Escape': 'ESC', 'Enter': '엔터', 'ControlLeft': '왼쪽 Ctrl', 'ControlRight': '오른쪽 Ctrl',
-        'ShiftLeft': '왼쪽 Shift', 'ShiftRight': '오른쪽 Shift', 'AltLeft': '왼쪽 Alt', 'AltRight': '오른쪽 Alt',
-        'KeyW': 'W', 'KeyA': 'A', 'KeyS': 'S', 'KeyD': 'D'
+        'ArrowLeft': '←',
+        'ArrowRight': '→',
+        'ArrowUp': '↑',
+        'ArrowDown': '↓',
+        'Space': '스페이스바',
+        'Escape': 'ESC',
+        'Enter': '엔터',
+        'ControlLeft': '왼쪽 Ctrl',
+        'ControlRight': '오른쪽 Ctrl',
+        'ShiftLeft': '왼쪽 Shift',
+        'ShiftRight': '오른쪽 Shift',
+        'AltLeft': '왼쪽 Alt',
+        'AltRight': '오른쪽 Alt',
+        'KeyW': 'W',
+        'KeyA': 'A',
+        'KeyS': 'S',
+        'KeyD': 'D'
       };
       if (map[keyCode]) return map[keyCode];
       if (keyCode.startsWith('Key')) return keyCode.replace('Key', '');
@@ -941,7 +899,7 @@
       infoDiv.innerHTML = `
         <p><strong>[ 움직임(슬라이드) ]</strong> ${leftKey} / ${rightKey} &nbsp;&nbsp; <strong>[ 웅크리기(슬라이드) ]</strong> ${crouchKey} &nbsp;&nbsp; <strong>[ ESC ]</strong> 처음으로</p>
         <p><strong>[ 점프(슬라이드,터치) ]</strong> ${jumpKey} &nbsp;&nbsp; <strong>[ 공격 ]</strong> ${attackKey},터치 &nbsp;&nbsp; 
-           <span style="color: #00f3ff; font-weight: bold;">[ 보안 ] 오프라인 안심 방어막 작동 중</span>
+           <span style="color: #ffe600; font-weight: bold;">[ 업데이트 ] BGM 추가</span>
         </p>
       `;
     }
@@ -956,7 +914,6 @@
         }
       });
     }
-
     howToPlayBtn.addEventListener('mousedown', (e) => e.stopPropagation());
     howToPlayBtn.addEventListener('touchstart', (e) => e.stopPropagation());
     howToPlayBtn.addEventListener('click', (e) => {
@@ -994,12 +951,13 @@
     resetSettingsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       rebindingAction = null;
-      keyBindings = { ...DEFAULT_BINDINGS };
+      keyBindings = {
+        ...DEFAULT_BINDINGS
+      };
       localStorage.setItem('desert_odyssey_keys', JSON.stringify(keyBindings));
       updateRebindButtonsUI();
       updateControlInfoUI();
     });
-
     document.querySelectorAll('.rebind-btn').forEach(btn => {
       btn.addEventListener('mousedown', (e) => e.stopPropagation());
       btn.addEventListener('touchstart', (e) => e.stopPropagation());
@@ -1014,13 +972,13 @@
         btn.innerText = '키를 누르세요...';
       });
     });
-
+    // 오디오 슬라이더 조작 시 점프/게임상호작용 방지
     settingsScreen.querySelectorAll('input[type="range"]').forEach(slider => {
       slider.addEventListener('mousedown', (e) => e.stopPropagation());
       slider.addEventListener('touchstart', (e) => e.stopPropagation());
       slider.addEventListener('click', (e) => e.stopPropagation());
     });
-
+    // 각 슬라이더 이벤트 매핑 함수
     function setupVolumeSlider(id, key) {
       const slider = document.getElementById(id);
       const text = document.getElementById(id + 'Text');
@@ -1032,6 +990,7 @@
         });
       }
     }
+    // 볼륨 슬라이더 세팅 적용
     setupVolumeSlider('masterVolume', 'master');
     setupVolumeSlider('normalBgmVolume', 'normalBgm');
     setupVolumeSlider('bossBgmVolume', 'bossBgm');
@@ -1061,19 +1020,35 @@
           const rand = Math.random();
           const xOffset = i * (Math.random() * 70 + 45);
           if (rand < 0.25) obstacles.push({
-            x: canvas.width + xOffset, y: groundY - 60, width: 100, height: 16, type: 'platform'
+            x: canvas.width + xOffset,
+            y: groundY - 60,
+            width: 100,
+            height: 16,
+            type: 'platform'
           });
           else if (rand < 0.45) obstacles.push({
-            x: canvas.width + xOffset, y: groundY - 110, width: 40, height: 22, type: 'high_air'
+            x: canvas.width + xOffset,
+            y: groundY - 110,
+            width: 40,
+            height: 22,
+            type: 'high_air'
           });
           else if (rand < 0.7) obstacles.push({
-            x: canvas.width + xOffset, y: groundY - 55, width: 40, height: 22, type: 'air'
+            x: canvas.width + xOffset,
+            y: groundY - 55,
+            width: 40,
+            height: 22,
+            type: 'air'
           });
           else {
             const width = Math.random() * 15 + 25;
             const height = Math.random() * 20 + 30;
             obstacles.push({
-              x: canvas.width + xOffset, y: groundY - height, width: width, height: height, type: 'ground'
+              x: canvas.width + xOffset,
+              y: groundY - height,
+              width: width,
+              height: height,
+              type: 'ground'
             });
           }
         }
@@ -1091,13 +1066,16 @@
     function playerShoot() {
       if (gameState === 'BOSS_BATTLE' && player.shootCooldown <= 0) {
         player.projectiles.push({
-          x: player.x + player.width, y: player.y + player.height / 2 - 4, width: 25, height: 8, speed: 14
+          x: player.x + player.width,
+          y: player.y + player.height / 2 - 4,
+          width: 25,
+          height: 8,
+          speed: 14
         });
         player.shootCooldown = 15;
         playSound('shoot');
       }
     }
-
     gameContainer.addEventListener('mousedown', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden') || !globalNoticeScreen.classList.contains('hidden')) return;
@@ -1109,26 +1087,36 @@
         else playerJump();
       }
     });
-
-    let touchStartX = 0, touchStartY = 0, lastTouchX = 0, lastTouchY = 0, touchXDelta = 0;
-    let isTouching = false, swipeUpDist = 0, swipeDownDist = 0;
-
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+    let touchXDelta = 0;
+    let isTouching = false;
+    let swipeUpDist = 0;
+    let swipeDownDist = 0;
     gameContainer.addEventListener('touchstart', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') e.preventDefault();
       isTouching = true;
       const touch = e.changedTouches[0];
-      touchStartX = touch.clientX; touchStartY = touch.clientY;
-      lastTouchX = touch.clientX; lastTouchY = touch.clientY;
-      touchXDelta = 0; swipeUpDist = 0; swipeDownDist = 0;
-    }, { passive: false });
-
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      lastTouchX = touch.clientX;
+      lastTouchY = touch.clientY;
+      touchXDelta = 0;
+      swipeUpDist = 0;
+      swipeDownDist = 0;
+    }, {
+      passive: false
+    });
     gameContainer.addEventListener('touchmove', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (gameState !== 'PLAYING' && gameState !== 'BOSS_BATTLE') return;
       e.preventDefault();
       const touch = e.changedTouches[0];
-      const currentX = touch.clientX; const currentY = touch.clientY;
+      const currentX = touch.clientX;
+      const currentY = touch.clientY;
       touchXDelta += (currentX - lastTouchX);
       lastTouchX = currentX;
       const deltaY = currentY - lastTouchY;
@@ -1162,13 +1150,16 @@
         player.y -= (player.normalHeight - player.crouchHeight);
         swipeDownDist = 0;
       }
-    }, { passive: false });
-
+    }, {
+      passive: false
+    });
     gameContainer.addEventListener('touchend', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (e.touches.length === 0) {
-        isTouching = false; touchXDelta = 0;
-        keyStates.moveLeft = false; keyStates.moveRight = false;
+        isTouching = false;
+        touchXDelta = 0;
+        keyStates.moveLeft = false;
+        keyStates.moveRight = false;
         if (player.isCrouching) {
           player.isCrouching = false;
           player.height = player.normalHeight;
@@ -1191,8 +1182,9 @@
           else playerJump();
         }
       }
-    }, { passive: false });
-
+    }, {
+      passive: false
+    });
     document.addEventListener('keydown', (e) => {
       if (rebindingAction) {
         e.preventDefault();
@@ -1227,14 +1219,22 @@
         e.preventDefault();
         if (gameState === 'START' || gameState === 'GAMEOVER') startGame();
       }
-      if (e.code === keyBindings.moveLeft || e.code === 'ArrowLeft') { e.preventDefault(); keyStates.moveLeft = true; }
-      if (e.code === keyBindings.moveRight || e.code === 'ArrowRight') { e.preventDefault(); keyStates.moveRight = true; }
+      if (e.code === keyBindings.moveLeft || e.code === 'ArrowLeft') {
+        e.preventDefault();
+        keyStates.moveLeft = true;
+      }
+      if (e.code === keyBindings.moveRight || e.code === 'ArrowRight') {
+        e.preventDefault();
+        keyStates.moveRight = true;
+      }
       if (e.code === keyBindings.jump || e.code === 'ArrowUp') {
         e.preventDefault();
         if (gameState === 'START' || gameState === 'GAMEOVER') {
           if (recordSection.style.display !== 'none' && gameState === 'GAMEOVER') return;
           startGame();
-        } else { playerJump(); }
+        } else {
+          playerJump();
+        }
       }
       if (e.code === keyBindings.attack || e.code === 'Space') {
         e.preventDefault();
@@ -1255,7 +1255,6 @@
         }
       }
     });
-
     document.addEventListener('keyup', (e) => {
       if (e.code === keyBindings.crouch || e.code === 'ArrowDown') {
         e.preventDefault();
@@ -1270,7 +1269,8 @@
     });
 
     function checkCollision(rect1, rect2) {
-      const paddingX = 4; const paddingY = 4;
+      const paddingX = 4;
+      const paddingY = 4;
       if (rect2.type === 'platform') {
         return (rect1.x + paddingX < rect2.x + rect2.width && rect1.x + rect1.width - paddingX > rect2.x &&
           rect1.y + paddingY < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y + 10);
@@ -1309,7 +1309,8 @@
       dunes.forEach(d => {
         if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') d.x -= (currentGameSpeed * 0.4) * timeScale;
         if (d.x <= -d.width) d.x += d.width * 2;
-        const dx = d.x; const dy = d.y;
+        const dx = d.x;
+        const dy = d.y;
         ctx.lineTo(dx, dy - Math.sin(d.offset) * 20);
         ctx.bezierCurveTo(dx + d.width * 0.3, dy - 60, dx + d.width * 0.7, dy - 60, dx + d.width, dy);
       });
@@ -1324,9 +1325,16 @@
       if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') {
         if (isTouching) {
           const threshold = 0.5;
-          if (touchXDelta > threshold) { keyStates.moveRight = true; keyStates.moveLeft = false; }
-          else if (touchXDelta < -threshold) { keyStates.moveLeft = true; keyStates.moveRight = false; }
-          else { keyStates.moveLeft = false; keyStates.moveRight = false; }
+          if (touchXDelta > threshold) {
+            keyStates.moveRight = true;
+            keyStates.moveLeft = false;
+          } else if (touchXDelta < -threshold) {
+            keyStates.moveLeft = true;
+            keyStates.moveRight = false;
+          } else {
+            keyStates.moveLeft = false;
+            keyStates.moveRight = false;
+          }
           touchXDelta = 0;
         }
         if (keyStates.moveLeft) player.x -= player.speedX * timeScale;
@@ -1351,14 +1359,22 @@
           player.y = targetFloor - player.height;
           player.vy = 0;
           player.isGrounded = true;
-        } else { player.isGrounded = false; }
+        } else {
+          player.isGrounded = false;
+        }
         let shiftedTrail = null;
-        if (player.trail.length >= 15) shiftedTrail = player.trail.shift();
+        if (player.trail.length >= 15) {
+          shiftedTrail = player.trail.shift();
+        }
         if (shiftedTrail) {
-          shiftedTrail.x = player.x; shiftedTrail.y = player.y + (player.isCrouching ? 5 : 10);
+          shiftedTrail.x = player.x;
+          shiftedTrail.y = player.y + (player.isCrouching ? 5 : 10);
           player.trail.push(shiftedTrail);
         } else {
-          player.trail.push({ x: player.x, y: player.y + (player.isCrouching ? 5 : 10) });
+          player.trail.push({
+            x: player.x,
+            y: player.y + (player.isCrouching ? 5 : 10)
+          });
         }
       }
       if (player.trail.length > 0) {
@@ -1367,18 +1383,29 @@
         for (let i = 1; i < player.trail.length; i++) {
           ctx.lineTo(player.trail[i].x - (player.trail.length - i) * 2, player.trail[i].y + Math.sin(animationFrameCount * 0.2 + i) * 3);
         }
-        ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.stroke();
       }
-      ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff';
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffff';
       ctx.fillRect(player.x, player.y + 5, player.width, player.height - 5);
-      ctx.beginPath(); ctx.arc(player.x + player.width / 2, player.y + 2, 6, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#d46c63'; ctx.fillRect(player.x - 5, player.y + player.height - 3, player.width + 10, 4);
+      ctx.beginPath();
+      ctx.arc(player.x + player.width / 2, player.y + 2, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#d46c63';
+      ctx.fillRect(player.x - 5, player.y + player.height - 3, player.width + 10, 4);
       for (let i = player.projectiles.length - 1; i >= 0; i--) {
         let p = player.projectiles[i];
         p.x += p.speed * timeScale;
-        ctx.fillStyle = '#ffe600'; ctx.shadowColor = '#ffe600'; ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ffe600';
+        ctx.shadowColor = '#ffe600';
+        ctx.shadowBlur = 10;
         ctx.fillRect(p.x, p.y, p.width, p.height);
-        ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 0; ctx.fillRect(p.x + 4, p.y + 2, p.width - 8, p.height - 4);
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.fillRect(p.x + 4, p.y + 2, p.width - 8, p.height - 4);
         if (p.x > canvas.width) player.projectiles.splice(i, 1);
       }
     }
@@ -1387,24 +1414,45 @@
       for (let i = 0; i < obstacles.length; i++) {
         let obs = obstacles[i];
         if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') obs.x -= speed * timeScale;
-        const x = obs.x; const y = obs.y;
+        const x = obs.x;
+        const y = obs.y;
         ctx.shadowBlur = 15;
         if (obs.type === 'ground') {
-          ctx.fillStyle = '#ffe600'; ctx.shadowColor = '#ffe600'; ctx.beginPath();
-          ctx.moveTo(x, y + obs.height); ctx.lineTo(x + obs.width / 2, y); ctx.lineTo(x + obs.width, y + obs.height); ctx.fill();
+          ctx.fillStyle = '#ffe600';
+          ctx.shadowColor = '#ffe600';
+          ctx.beginPath();
+          ctx.moveTo(x, y + obs.height);
+          ctx.lineTo(x + obs.width / 2, y);
+          ctx.lineTo(x + obs.width, y + obs.height);
+          ctx.fill();
         } else if (obs.type === 'platform') {
-          ctx.fillStyle = '#00ff00'; ctx.shadowColor = '#00ff00'; ctx.fillRect(x, y, obs.width, obs.height);
-          ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 4, y + 4, obs.width - 8, obs.height - 8);
+          ctx.fillStyle = '#00ff00';
+          ctx.shadowColor = '#00ff00';
+          ctx.fillRect(x, y, obs.width, obs.height);
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(x + 4, y + 4, obs.width - 8, obs.height - 8);
         } else if (obs.type === 'high_air') {
-          ctx.fillStyle = '#ff00ff'; ctx.shadowColor = '#ff00ff'; ctx.fillRect(x, y, obs.width, obs.height);
-          ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 6, y + 4, obs.width - 12, obs.height - 8);
+          ctx.fillStyle = '#ff00ff';
+          ctx.shadowColor = '#ff00ff';
+          ctx.fillRect(x, y, obs.width, obs.height);
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(x + 6, y + 4, obs.width - 12, obs.height - 8);
         } else {
-          ctx.fillStyle = '#00f3ff'; ctx.shadowColor = '#00f3ff'; ctx.fillRect(x, y, obs.width, obs.height);
-          ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 8, y + 6, obs.width - 16, obs.height - 12);
+          ctx.fillStyle = '#00f3ff';
+          ctx.shadowColor = '#00f3ff';
+          ctx.fillRect(x, y, obs.width, obs.height);
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(x + 8, y + 6, obs.width - 16, obs.height - 12);
         }
         ctx.shadowBlur = 0;
         if ((gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') && checkCollision(player, obs)) endGame();
-        if (obs.x + obs.width < 0) { obstacles.splice(i, 1); i--; }
+        if (obs.x + obs.width < 0) {
+          obstacles.splice(i, 1);
+          i--;
+        }
       }
     }
 
@@ -1412,7 +1460,9 @@
       if (!boss.active) return;
       if (boss.x > canvas.width - 180 && !boss.leaving) boss.x -= 3 * timeScale;
       else if (boss.leaving) boss.x += 5 * timeScale;
-      else { boss.y = (canvas.height / 2 - 50) + Math.sin(animationFrameCount * 0.05) * 60; }
+      else {
+        boss.y = (canvas.height / 2 - 50) + Math.sin(animationFrameCount * 0.05) * 60;
+      }
       if (boss.hp > 0 && !boss.leaving && boss.x <= canvas.width - 180) {
         boss.shootTimer += timeScale;
         let currentShootInterval = 110 - (bossLevel * 1);
@@ -1423,59 +1473,106 @@
           const r = Math.random();
           let targetY = (r < 0.33) ? groundY - 20 : (r < 0.66) ? groundY - 40 : groundY - 110;
           boss.projectiles.push({
-            x: boss.x, y: targetY, width: 50, height: 16, speed: currentGameSpeed * 0.4 + (bossLevel * 0.34)
+            x: boss.x,
+            y: targetY,
+            width: 50,
+            height: 16,
+            speed: currentGameSpeed * 0.4 + (bossLevel * 0.34)
           });
           if (spawnCount >= 2) {
             let targetY2 = (Math.random() < 0.5) ? groundY - 40 : groundY - 20;
             boss.projectiles.push({
-              x: boss.x + 60, y: targetY2, width: 50, height: 16, speed: currentGameSpeed * 0.3 + (bossLevel * 0.3)
+              x: boss.x + 60,
+              y: targetY2,
+              width: 50,
+              height: 16,
+              speed: currentGameSpeed * 0.3 + (bossLevel * 0.3)
             });
           }
           if (spawnCount === 3) {
             let targetY3 = (Math.random() < 0.5) ? groundY - 110 : groundY - 40;
             boss.projectiles.push({
-              x: boss.x + 120, y: targetY3, width: 50, height: 16, speed: currentGameSpeed * 0.25 + (bossLevel * 0.25)
+              x: boss.x + 120,
+              y: targetY3,
+              width: 50,
+              height: 16,
+              speed: currentGameSpeed * 0.25 + (bossLevel * 0.25)
             });
           }
         }
       } else if (!boss.leaving && boss.hp <= 0) {
-        boss.active = false; boss.projectiles = []; gameState = 'PLAYING';
-        bossLevel++; nextBossScore += 2000; bossWarningUI.classList.remove('warning-active');
-        scoreValueUI.innerText = score; return;
+        boss.active = false;
+        boss.projectiles = [];
+        gameState = 'PLAYING';
+        bossLevel++;
+        nextBossScore += 2000;
+        bossWarningUI.classList.remove('warning-active');
+        scoreValueUI.innerText = score;
+        return;
       }
       if (!boss.leaving) {
         for (let i = player.projectiles.length - 1; i >= 0; i--) {
           if (checkProjectileCollision(player.projectiles[i], boss)) {
-            boss.hp -= player.damage; boss.hitTimer = 10;
-            player.projectiles.splice(i, 1); playSound('hit');
+            boss.hp -= player.damage;
+            boss.hitTimer = 10;
+            player.projectiles.splice(i, 1);
+            playSound('hit');
           }
         }
       }
-      const bx = boss.x; const by = boss.y;
+      const bx = boss.x;
+      const by = boss.y;
       if (boss.hitTimer > 0) {
-        ctx.fillStyle = '#ffffff'; ctx.shadowColor = '#ffffff'; boss.hitTimer -= timeScale;
-      } else { ctx.fillStyle = '#110515'; ctx.shadowColor = '#ff0055'; }
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#ffffff';
+        boss.hitTimer -= timeScale;
+      } else {
+        ctx.fillStyle = '#110515';
+        ctx.shadowColor = '#ff0055';
+      }
       ctx.shadowBlur = 20 + Math.sin(animationFrameCount * 0.1) * 10;
-      ctx.beginPath(); ctx.moveTo(bx + boss.width / 2, by); ctx.lineTo(bx + boss.width, by + boss.height / 2);
-      ctx.lineTo(bx + boss.width / 2, by + boss.height); ctx.lineTo(bx, by + boss.height / 2); ctx.fill();
-      ctx.fillStyle = '#ff0055'; ctx.beginPath(); ctx.arc(bx + boss.width / 2, by + boss.height / 2, 18, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(bx + boss.width / 2, by + boss.height / 2, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(bx + boss.width / 2, by);
+      ctx.lineTo(bx + boss.width, by + boss.height / 2);
+      ctx.lineTo(bx + boss.width / 2, by + boss.height);
+      ctx.lineTo(bx, by + boss.height / 2);
+      ctx.fill();
+      ctx.fillStyle = '#ff0055';
+      ctx.beginPath();
+      ctx.arc(bx + boss.width / 2, by + boss.height / 2, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(bx + boss.width / 2, by + boss.height / 2, 6, 0, Math.PI * 2);
+      ctx.fill();
       ctx.shadowBlur = 0;
       if (boss.hp > 0 && !boss.leaving) {
-        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 24px "Noto Serif KR"'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px "Noto Serif KR"';
+        ctx.textAlign = 'center';
         ctx.fillText(`HP: ${Math.max(0, boss.hp)}`, bx + boss.width / 2, by - 25);
-        ctx.font = 'normal 15px "Noto Serif KR"'; ctx.fillStyle = '#ffe600';
+        ctx.font = 'normal 15px "Noto Serif KR"';
+        ctx.fillStyle = '#ffe600';
         ctx.fillText(`DAMAGE: ${player.damage}`, bx + boss.width / 2, by - 55);
       }
       for (let i = boss.projectiles.length - 1; i >= 0; i--) {
-        let p = boss.projectiles[i]; p.x -= p.speed * timeScale;
-        ctx.fillStyle = '#ff0055'; ctx.shadowColor = '#ff0055'; ctx.shadowBlur = 15; ctx.fillRect(p.x, p.y, p.width, p.height);
-        ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 0; ctx.fillRect(p.x + 5, p.y + 3, p.width - 10, p.height - 6);
+        let p = boss.projectiles[i];
+        p.x -= p.speed * timeScale;
+        ctx.fillStyle = '#ff0055';
+        ctx.shadowColor = '#ff0055';
+        ctx.shadowBlur = 15;
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.fillRect(p.x + 5, p.y + 3, p.width - 10, p.height - 6);
         if (checkCollision(player, p)) endGame();
         if (p.x + p.width < 0) boss.projectiles.splice(i, 1);
       }
       if (boss.leaving && boss.x > canvas.width && boss.projectiles.length === 0) {
-        boss.active = false; gameState = 'PLAYING'; bossLevel++; nextBossScore += 2000;
+        boss.active = false;
+        gameState = 'PLAYING';
+        bossLevel++;
+        nextBossScore += 2000;
         bossWarningUI.classList.remove('warning-active');
       }
     }
@@ -1506,15 +1603,25 @@
       if (gameState === 'PLAYING') {
         spawnObstacle(timeScale);
         if (score >= nextBossScore) {
-          gameState = 'BOSS_BATTLE'; boss.active = true; boss.leaving = false;
-          boss.maxHp = 1 + (bossLevel * 8); boss.hp = boss.maxHp; boss.x = canvas.width + 100;
-          boss.projectiles = []; boss.shootTimer = 0; bossWarningUI.classList.add('warning-active');
+          gameState = 'BOSS_BATTLE';
+          boss.active = true;
+          boss.leaving = false;
+          boss.maxHp = 1 + (bossLevel * 8);
+          boss.hp = boss.maxHp;
+          boss.x = canvas.width + 100;
+          boss.projectiles = [];
+          boss.shootTimer = 0;
+          bossWarningUI.classList.add('warning-active');
         }
-      } else if (gameState === 'BOSS_BATTLE') { updateAndDrawBoss(timeScale); }
+      } else if (gameState === 'BOSS_BATTLE') {
+        updateAndDrawBoss(timeScale);
+      }
       if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') {
         scoreTimer += timeScale;
         if (scoreTimer >= 5) {
-          if (gameState === 'PLAYING' || (gameState === 'BOSS_BATTLE' && score < nextBossScore + 500)) { addScore(); }
+          if (gameState === 'PLAYING' || (gameState === 'BOSS_BATTLE' && score < nextBossScore + 500)) {
+            addScore();
+          }
           scoreTimer = 0;
         }
       }
@@ -1525,17 +1632,42 @@
     function startGame() {
       if (gameState === 'GAMEOVER' && recordSection.style.display !== 'none' && recordSection.style.display !== '') return;
       if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden') || !globalNoticeScreen.classList.contains('hidden')) return;
-      initAudio(); startBGM();
-      gameState = 'PLAYING'; score = 0; baseGameSpeed = 4.3; currentGameSpeed = 4.3; obstacles = [];
-      nextBossScore = 1000; bossLevel = 1; boss.active = false; boss.leaving = false; boss.projectiles = [];
+      initAudio();
+      startBGM();
+      gameState = 'PLAYING';
+      score = 0;
+      baseGameSpeed = 4.3;
+      currentGameSpeed = 4.3;
+      obstacles = [];
+      nextBossScore = 1000;
+      bossLevel = 1;
+      boss.active = false;
+      boss.leaving = false;
+      boss.projectiles = [];
       bossWarningUI.classList.remove('warning-active');
-      keyStates.moveLeft = false; keyStates.moveRight = false;
-      player.x = 150; player.isCrouching = false; player.height = player.normalHeight; player.y = groundY - player.height;
-      player.vy = 0; player.trail = []; player.projectiles = []; player.shootCooldown = 0; player.damage = 1;
-      scoreValueUI.innerText = '0'; progressBar.style.width = '0%'; progressMarker.style.left = '0%';
-      startScreen.classList.add('hidden'); gameOverScreen.classList.add('hidden');
-      initDunes(); cancelAnimationFrame(animationId);
-      lastTime = performance.now(); animationFrameCount = 0; spawnTimer = 0; currentSpawnTarget = 60; scoreTimer = 0;
+      keyStates.moveLeft = false;
+      keyStates.moveRight = false;
+      player.x = 150;
+      player.isCrouching = false;
+      player.height = player.normalHeight;
+      player.y = groundY - player.height;
+      player.vy = 0;
+      player.trail = [];
+      player.projectiles = [];
+      player.shootCooldown = 0;
+      player.damage = 1;
+      scoreValueUI.innerText = '0';
+      progressBar.style.width = '0%';
+      progressMarker.style.left = '0%';
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      initDunes();
+      cancelAnimationFrame(animationId);
+      lastTime = performance.now();
+      animationFrameCount = 0;
+      spawnTimer = 0;
+      currentSpawnTarget = 60;
+      scoreTimer = 0;
       loop(lastTime);
     }
 
@@ -1548,8 +1680,12 @@
       settingsScreen.classList.add('hidden');
       globalNoticeScreen.classList.add('hidden');
       bossWarningUI.classList.remove('warning-active');
-      drawBackground(); updateAndDrawDunes(); updateAndDrawPlayer(); updateControlInfoUI();
-      loadLeaderboard(); checkNewNotices();
+      drawBackground();
+      updateAndDrawDunes();
+      updateAndDrawPlayer();
+      updateControlInfoUI();
+      loadLeaderboard();
+      checkNewNotices();
     }
 
     function endGame() {
@@ -1560,23 +1696,27 @@
       recordSection.style.display = 'flex';
       gameOverScreen.classList.remove('hidden');
       bossWarningUI.classList.remove('warning-active');
-      keyStates.moveLeft = false; keyStates.moveRight = false;
+      keyStates.moveLeft = false;
+      keyStates.moveRight = false;
       if (player.isCrouching) {
-        player.isCrouching = false; player.height = player.normalHeight;
+        player.isCrouching = false;
+        player.height = player.normalHeight;
       }
       setTimeout(() => playerNameInput.focus(), 50);
     }
 
     function loadLeaderboard() {
       if (isFetchingLeaderboard) return;
-      // 랭킹 로드 시 백그라운드에 대기 중인 오프라인 점수가 있다면 먼저 업로드 시도
-      syncPendingScores();
-
       const cachedData = localStorage.getItem('desertOdysseyLeaderboard');
-      if (cachedData) { updateLeaderboardUI(JSON.parse(cachedData)); }
-      else { leaderboardDisplay.innerHTML = '<h3>🏆 명예의 전당 🏆</h3><p style="font-size:14px; color:#aaa;">데이터를 가져오는 중...</p>'; }
+      if (cachedData) {
+        updateLeaderboardUI(JSON.parse(cachedData));
+      } else {
+        leaderboardDisplay.innerHTML = '<h3>🏆 명예의 전당 🏆</h3><p style="font-size:14px; color:#aaa;">데이터를 가져오는 중...</p>';
+      }
       isFetchingLeaderboard = true;
-      fetch(`${SHEET_WEB_APP_URL}?action=get&t=${Date.now()}`, { cache: "no-store" })
+      fetch(`${SHEET_WEB_APP_URL}?action=get&t=${Date.now()}`, {
+          cache: "no-store"
+        })
         .then(response => response.json())
         .then(data => {
           localStorage.setItem('desertOdysseyLeaderboard', JSON.stringify(data));
@@ -1602,55 +1742,26 @@
       html += '</table>';
       leaderboardDisplay.innerHTML = html;
     }
-
-    // --- [추가 기능 2] 오프라인 방어막: 네트워크 에러 발생 시 데이터 로컬 유실 차단 시스템 ---
-    async function syncPendingScores() {
-      if (!navigator.onLine) return;
-      try {
-        const pending = JSON.parse(localStorage.getItem('desert_pending_scores')) || [];
-        if (pending.length === 0) return;
-
-        console.log(`[방어막] 오프라인 대기 중인 기록 ${pending.length}개 발견, 동기화 개시...`);
-        let unexported = [];
-
-        for (let task of pending) {
-          try {
-            const res = await fetch(`${SHEET_WEB_APP_URL}?action=insert&name=${encodeURIComponent(task.name)}&score=${task.score}`);
-            const data = await res.json();
-            if (data.result !== "success") unexported.push(task);
-          } catch (e) {
-            unexported.push(task);
-          }
-        }
-
-        if (unexported.length === 0) {
-          localStorage.removeItem('desert_pending_scores');
-          console.log("[방어막] 모든 오프라인 유실 방지 점수가 구글 시트에 안전하게 연동되었습니다.");
-        } else {
-          localStorage.setItem('desert_pending_scores', JSON.stringify(unexported));
-        }
-      } catch (e) {
-        console.error("동기화 파서 내부 요류:", e);
-      }
-    }
-
     recordSection.addEventListener('mousedown', (e) => e.stopPropagation());
     recordSection.addEventListener('touchstart', (e) => e.stopPropagation());
     recordSection.addEventListener('click', (e) => e.stopPropagation());
     playerNameInput.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.isComposing) return;
-      if (e.key === 'Enter') { e.preventDefault(); saveScoreBtn.click(); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveScoreBtn.click();
+      }
     });
-
     saveScoreBtn.addEventListener('click', (e) => {
       const name = playerNameInput.value.trim() || '이름없는 방랑자';
       saveScoreBtn.innerText = "저장 중...";
       saveScoreBtn.disabled = true;
       skipSaveBtn.disabled = true;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => { controller.abort(); }, 3000);
-      
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 3000);
       fetch(`${SHEET_WEB_APP_URL}?action=insert&name=${encodeURIComponent(name)}&score=${score}`, {
           signal: controller.signal
         })
@@ -1664,18 +1775,7 @@
         })
         .catch(err => {
           clearTimeout(timeoutId);
-          console.error("네트워크 단절 혹은 타임아웃 발생 -> 오프라인 방어막 가동:", err);
-          
-          // 로컬 스토리지 버퍼에 밀어 넣어 나중에 인터넷이 연결되면 전송하도록 보호
-          try {
-            const pending = JSON.parse(localStorage.getItem('desert_pending_scores')) || [];
-            pending.push({ name: name, score: score, date: Date.now() });
-            localStorage.setItem('desert_pending_scores', JSON.stringify(pending));
-            alert("⚠️ 네트워크 연결이 불안정하여 점수가 브라우저 안전장치에 임시 저장되었습니다! 인터넷 연결이 복구되면 명예의 전당으로 자동 전송됩니다.");
-          } catch(storageErr) {
-            console.error("로컬 스토리지 할당 실패:", storageErr);
-          }
-
+          console.error("저장 실패 또는 3초 타임아웃 발생:", err);
           recordSection.style.display = 'none';
           resetToStartScreen();
         })
@@ -1685,12 +1785,10 @@
           skipSaveBtn.disabled = false;
         });
     });
-
     skipSaveBtn.addEventListener('click', (e) => {
       recordSection.style.display = 'none';
       resetToStartScreen();
     });
-
     document.addEventListener('contextmenu', (e) => e.preventDefault());
     updateRebindButtonsUI();
     updateControlInfoUI();
@@ -1700,19 +1798,14 @@
     updateAndDrawPlayer();
     loadLeaderboard();
     checkNewNotices();
-
-    // 시작 화면 루프 타이머들 연동
     accurateTimer(() => {
       if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
         loadLeaderboard();
-        syncPendingScores(); 
       }
     }, 5000);
-
     accurateTimer(() => {
       if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
         checkNewNotices();
-        checkGameUpdate(); // 5초 간격으로 백그라운드 패치 감지 진행
       }
     }, 5000);
   </script>
