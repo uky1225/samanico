@@ -130,8 +130,8 @@
       position: fixed;
       left: 0;
       top: 0;
-      width: 100%;
-      height: 100%;
+      width: 100vw;
+      height: 100dvh;
       margin: 0;
       padding: 0;
       background-color: #0b0c10;
@@ -144,11 +144,6 @@
     }
 
     #gameContainer {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
       background: linear-gradient(180deg, #2b1055 0%, #75225b 50%, #d46c63 100%);
       box-shadow: 0 30px 70px rgba(0, 0, 0, 0.95);
       overflow: hidden;
@@ -156,6 +151,30 @@
       box-sizing: border-box;
       opacity: 0;
       transition: opacity 0.25s ease-in-out;
+      /* ★ 핵심: 내부 UI 아이콘/글자들이 #gameContainer 크기를 기준으로 비례 축소되도록 설정 */
+      container-type: size;
+    }
+
+    /* 🖥️ [가로 모드] 화면 전체 채우기 */
+    @media (orientation: landscape) {
+      #gameContainer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+      }
+    }
+
+    /* 📱 [세로 모드] 무조건 가로 100% 고정 + 상/하단 레터박스만 생성 */
+    @media (orientation: portrait) {
+      #gameContainer {
+        position: relative;
+        left: auto;
+        top: auto;
+        width: 100vw;
+        aspect-ratio: 16 / 9;
+      }
     }
 
     #gameContainer * {
@@ -172,28 +191,30 @@
       height: 100%;
     }
 
+    /* --- 반응형 UI 요소 (px -> cqw / cqh 컨테이너 쿼리 단위 적용) --- */
     #scoreBoard {
       position: absolute;
-      top: 25px;
-      right: 35px;
-      font-size: 26px;
+      top: 3.5cqh;
+      right: 3cqw;
+      font-size: 2.5cqw;
       font-weight: 300;
       color: #fceabb;
       text-shadow: 1px 1px 10px rgba(0, 0, 0, 0.5);
       z-index: 10;
       pointer-events: none;
-      letter-spacing: 2px;
+      letter-spacing: 0.2cqw;
     }
 
     #progressContainer {
       position: absolute;
-      top: 35px;
+      top: 4.5cqh;
       left: 50%;
       transform: translateX(-50%);
-      width: 500px;
-      height: 10px;
+      width: 40cqw;
+      max-width: 80%;
+      height: 1.5cqh;
       background: rgba(255, 255, 255, 0.2);
-      border-radius: 5px;
+      border-radius: 1cqh;
       z-index: 10;
       pointer-events: none;
     }
@@ -202,19 +223,19 @@
       width: 0%;
       height: 100%;
       background: #00f3ff;
-      border-radius: 5px;
+      border-radius: 1cqh;
       box-shadow: 0 0 10px #00f3ff;
       transition: width 0.1s linear;
     }
 
     #progressMarker {
       position: absolute;
-      top: -3px;
+      top: -0.5cqh;
       left: 0%;
-      width: 18px;
-      height: 18px;
+      width: 2.5cqh;
+      height: 2.5cqh;
       background: #ffffff;
-      border: 4px solid #00f3ff;
+      border: 0.5cqh solid #00f3ff;
       border-radius: 50%;
       box-shadow: 0 0 10px #00f3ff;
       transform: translateX(-50%);
@@ -224,25 +245,25 @@
 
     #progressGoal {
       position: absolute;
-      top: -22px;
-      right: -35px;
-      font-size: 15px;
+      top: -3cqh;
+      right: -4cqw;
+      font-size: 1.5cqw;
       color: #fceabb;
       font-weight: 700;
     }
 
     #bossWarning {
       position: absolute;
-      top: 120px;
+      top: 15cqh;
       width: 100%;
       text-align: center;
-      font-size: 38px;
+      font-size: 4cqw;
       font-weight: 700;
       color: #000000;
       text-shadow: 0 0 15px #ff0055;
       z-index: 10;
       pointer-events: none;
-      letter-spacing: 5px;
+      letter-spacing: 0.5cqw;
       opacity: 0;
       transition: opacity 0.3s;
     }
@@ -264,15 +285,13 @@
       }
     }
 
-    /* 🌟 [수정된 부분] 기본값 / 안드로이드 저전력 대응 */
-    /* 블러 효과가 안 먹힐 때 뒤쪽 내용이 비치지 않도록 기본 배경을 불투명하게 설정합니다. */
     .overlayScreen {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(14, 8, 22, 0.95); /* 안드로이드 블러 미지원 시 겹침 방지용 불투명 배경 */
+      background: rgba(14, 8, 22, 0.95);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -283,7 +302,6 @@
       transition: opacity 0.5s ease;
     }
 
-    /* 🌟 [수정된 부분] 블러 및 백드롭 필터를 정상 지원하는 기기(아이패드 등)에서만 은은하게 투명+블러 적용 */
     @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
       .overlayScreen {
         background: rgba(14, 8, 22, 0.6);
@@ -297,50 +315,50 @@
     }
 
     .overlayScreen h1 {
-      font-size: 54px;
+      font-size: 5cqw;
       font-weight: 700;
-      margin: 0 0 20px 0;
-      letter-spacing: 6px;
+      margin: 0 0 2cqh 0;
+      letter-spacing: 0.5cqw;
       text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
     }
 
     .overlayScreen p {
-      font-size: 20px;
+      font-size: 2cqw;
       font-weight: 300;
-      margin: 0 0 20px 0;
-      letter-spacing: 1px;
+      margin: 0 0 2cqh 0;
+      letter-spacing: 0.1cqw;
       color: #e8d0c3;
     }
 
     .controls-info {
       background: rgba(0, 0, 0, 0.45);
-      padding: 15px 30px;
-      border-radius: 8px;
+      padding: 2cqh 3cqw;
+      border-radius: 1cqw;
       border: 1px solid rgba(255, 255, 255, 0.1);
-      margin-bottom: 20px;
+      margin-bottom: 2cqh;
       text-align: left;
-      font-size: 15px;
+      font-size: 1.6cqw;
       line-height: 1.6;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
     }
 
     .controls-info p {
-      margin: 6px 0;
+      margin: 0.8cqh 0;
       color: #ffffff;
     }
 
     .ui-button {
-      padding: 12px 24px;
-      font-size: 16px;
+      padding: 1.5cqh 3cqw;
+      font-size: 1.8cqw;
       font-weight: bold;
       cursor: pointer;
       border: none;
-      border-radius: 6px;
+      border-radius: 0.8cqw;
       background: #d46c63;
       color: white;
       font-family: 'Noto Serif KR', serif;
       transition: background 0.3s;
-      margin-bottom: 20px;
+      margin-bottom: 2cqh;
       box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
     }
 
@@ -358,19 +376,19 @@
 
     .manual-content {
       background: rgba(0, 0, 0, 0.75);
-      padding: 25px;
-      border-radius: 8px;
+      padding: 3cqh 3cqw;
+      border-radius: 1cqw;
       border: 1px solid #fceabb;
-      margin-bottom: 25px;
+      margin-bottom: 2.5cqh;
       text-align: left;
       line-height: 1.8;
-      max-width: 650px;
+      max-width: 60cqw;
     }
 
     .manual-content p {
-      margin: 10px 0;
+      margin: 1cqh 0;
       color: #ffffff;
-      font-size: 16px;
+      font-size: 1.6cqw;
     }
 
     .manual-content strong {
@@ -378,43 +396,43 @@
     }
 
     .setting-group {
-      margin-bottom: 20px;
+      margin-bottom: 2.5cqh;
     }
 
     .setting-group h3 {
       color: #ffe600;
-      margin: 0 0 12px 0;
-      font-size: 18px;
+      margin: 0 0 1.5cqh 0;
+      font-size: 2cqw;
       border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-      padding-bottom: 5px;
+      padding-bottom: 0.8cqh;
     }
 
     .setting-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
-      font-size: 16px;
+      margin-bottom: 1.5cqh;
+      font-size: 1.8cqw;
       color: #ffffff;
     }
 
     .setting-item label {
       font-weight: bold;
       color: #fceabb;
-      margin-right: 30px;
+      margin-right: 3cqw;
     }
 
     .rebind-btn {
-      padding: 6px 14px;
-      border-radius: 4px;
+      padding: 0.8cqh 1.8cqw;
+      border-radius: 0.6cqw;
       border: 1px solid #d46c63;
       background: rgba(0, 0, 0, 0.7);
       color: #00f3ff;
       font-family: 'Noto Serif KR', serif;
-      font-size: 14px;
+      font-size: 1.6cqw;
       font-weight: bold;
       cursor: pointer;
-      min-width: 140px;
+      min-width: 14cqw;
       text-align: center;
       transition: background 0.2s, color 0.2s, border-color 0.2s;
     }
@@ -441,7 +459,7 @@
     }
 
     .setting-item input[type="range"] {
-      width: 130px;
+      width: 14cqw;
       accent-color: #d46c63;
       cursor: pointer;
     }
@@ -449,17 +467,18 @@
     .leaderboard-box {
       background: rgba(0, 0, 0, 0.75);
       border: 1px solid #d46c63;
-      border-radius: 8px;
-      padding: 15px 25px;
-      width: 450px;
-      margin-bottom: 20px;
+      border-radius: 1cqw;
+      padding: 2cqh 3cqw;
+      width: 45cqw;
+      max-width: 90%;
+      margin-bottom: 2cqh;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
     }
 
     .leaderboard-box h3 {
-      margin: 0 0 12px 0;
+      margin: 0 0 1.5cqh 0;
       color: #ffe600;
-      font-size: 20px;
+      font-size: 2.2cqw;
     }
 
     .leaderboard-box table {
@@ -471,30 +490,30 @@
       color: #d46c63;
       font-weight: bold;
       border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-      padding-bottom: 8px;
-      font-size: 15px;
+      padding-bottom: 1cqh;
+      font-size: 1.6cqw;
     }
 
     .leaderboard-box td {
-      padding: 6px 0;
+      padding: 0.8cqh 0;
       color: #ffffff;
-      font-size: 16px;
+      font-size: 1.8cqw;
     }
 
     #recordSection {
-      margin: 20px 0;
+      margin: 2cqh 0;
       display: flex;
-      gap: 12px;
+      gap: 1.5cqw;
       justify-content: center;
       align-items: center;
       cursor: default;
     }
 
     #recordSection input {
-      padding: 12px;
-      font-size: 18px;
+      padding: 1.5cqh 2cqw;
+      font-size: 2cqw;
       border: none;
-      border-radius: 4px;
+      border-radius: 0.5cqw;
       background: rgba(255, 255, 255, 0.8);
       color: #000;
       font-family: 'Noto Serif KR', serif;
@@ -503,12 +522,12 @@
 
     .blink-text {
       animation: blink 1.5s infinite;
-      font-size: 18px;
+      font-size: 1.8cqw;
       color: #ffffff;
       font-weight: 300;
-      letter-spacing: 3px;
-      margin-top: 5px;
-      margin-bottom: 15px;
+      letter-spacing: 0.3cqw;
+      margin-top: 0.8cqh;
+      margin-bottom: 2cqh;
       pointer-events: none;
     }
 
@@ -530,17 +549,19 @@
 
     #globalNoticeBtn {
       position: absolute;
-      top: 25px;
-      right: 35px;
-      width: 50px;
-      height: 50px;
+      top: 3.5cqh;
+      right: 3cqw;
+      width: 5cqw;
+      height: 5cqw;
+      min-width: 32px;
+      min-height: 32px;
       padding: 0;
       background-color: #ff9800;
       color: white;
       border: none;
-      border-radius: 10px;
+      border-radius: 1cqw;
       cursor: pointer;
-      font-size: 24px;
+      font-size: 2.5cqw;
       z-index: 25;
       display: flex;
       align-items: center;
@@ -556,13 +577,15 @@
 
     #noticeBadge {
       position: absolute;
-      top: -5px;
-      right: -5px;
+      top: -0.8cqw;
+      right: -0.8cqw;
       background: #ff0055;
       color: white;
-      font-size: 10px;
-      width: 18px;
-      height: 18px;
+      font-size: 1.2cqw;
+      width: 1.8cqw;
+      height: 1.8cqw;
+      min-width: 14px;
+      min-height: 14px;
       border-radius: 50%;
       display: flex;
       justify-content: center;
@@ -576,14 +599,14 @@
     .notice-list {
       list-style: none;
       padding: 0;
-      margin: 15px 0;
+      margin: 1.5cqh 0;
       width: 100%;
     }
 
     .notice-list li {
-      padding: 12px;
+      padding: 1.5cqh;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      font-size: 15px;
+      font-size: 1.6cqw;
       line-height: 1.6;
       color: #ffffff;
       text-align: left;
@@ -603,8 +626,8 @@
     <div id="bossWarning">⚠ BOSS STAGE ⚠</div>
     <canvas id="gameCanvas"></canvas>
     <div id="globalNoticeScreen" class="overlayScreen hidden">
-      <h1 style="font-size: 42px; margin-bottom: 25px;">실시간 사막 소식</h1>
-      <div class="manual-content" style="width: 500px; max-height: 350px; overflow-y: auto;">
+      <h1 style="font-size: 4cqw; margin-bottom: 2cqh;">실시간 사막 소식</h1>
+      <div class="manual-content" style="width: 50cqw; max-width: 90%; max-height: 50cqh; overflow-y: auto;">
         <ul id="globalNoticeList" class="notice-list">
           <li>공지사항을 가져오는 중입니다...</li>
         </ul>
@@ -617,12 +640,12 @@
       <h1>여정의 시작</h1>
       <div id="leaderboardDisplay" class="leaderboard-box">
         <h3>🏆 명예의 전당 🏆</h3>
-        <p style="font-size:14px; color:#aaa;">데이터를 가져오는 중...</p>
+        <p style="font-size:1.5cqw; color:#aaa;">데이터를 가져오는 중...</p>
       </div>
 
       <div class="controls-info" id="controlsInfo"></div>
 
-      <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+      <div style="display: flex; gap: 1.5cqw; margin-bottom: 2cqh;">
         <button id="howToPlayBtn" class="ui-button" style="margin-bottom: 0;">게임 설명 보기</button>
         <button id="settingsBtn" class="ui-button secondary" style="margin-bottom: 0;">⚙️ 게임 설정</button>
       </div>
@@ -630,7 +653,7 @@
     </div>
 
     <div id="howToPlayScreen" class="overlayScreen hidden">
-      <h1 style="font-size: 42px; margin-bottom: 25px;">📜 사막의 일지</h1>
+      <h1 style="font-size: 4cqw; margin-bottom: 2cqh;">📜 사막의 일지</h1>
       <div class="manual-content">
         <p><strong>🏜️ 기본 목표:</strong> 다가오는 장애물을 피해 최대한 멀리 나아가세요. 오래 살아남을수록 속도가 점차 빨라집니다.</p>
         <p><strong>🌵 장애물:</strong> 지상 장애물은 점프(위쪽)로, 공중 장애물은 웅크리기(아래쪽)로 회피하세요.</p>
@@ -638,15 +661,15 @@
         <p><strong>👿 보스 전투:</strong> 1000점 단위로 보스가 등장합니다. 그 이후 2000점이 지날때 마다 보스가 등장하며 보스전 중에는 설정한 <strong>[공격키]</strong>를 눌러 탄환을 발사할 수 있습니다.(보스전을 오래 끌면 불리해요.)</p>
         <p><strong>⚔️ 보상:</strong> 보스를 처치하면 보상을 얻고 다음 보스를 더 쉽게 물리칩니다!</p>
         <p><strong>게임 업데이트:</strong> 게임 업데이트는 자동으로 되며 업데이트 날자는 공지로 표시하겠습니다.</p>
-        <p></strong>*공지사항도 확인해주세요.*</p>
+        <p><strong>*공지사항도 확인해주세요.*</strong></p>
       </div>
       <button id="closeHowToPlayBtn" class="ui-button">닫기</button>
     </div>
 
     <div id="settingsScreen" class="overlayScreen hidden">
-      <h1 style="font-size: 42px; margin-bottom: 25px;">⚙️ 설정 창</h1>
+      <h1 style="font-size: 4cqw; margin-bottom: 2cqh;">⚙️ 설정 창</h1>
 
-      <div class="manual-content" style="width: 490px; max-height: 60vh; overflow-y: auto;">
+      <div class="manual-content" style="width: 50cqw; max-width: 90%; max-height: 60cqh; overflow-y: auto;">
         <div class="setting-group">
           <h3> 조작 설정 (원하는 키를 자유롭게 설정하세요)</h3>
           <div class="setting-item">
@@ -675,42 +698,42 @@
           <h3> 오디오 설정</h3>
           <div class="setting-item">
             <label style="color: #edb45e;">전체 음량 </label>
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 1cqw;">
               <input type="range" id="masterVolume" min="0" max="100" value="50">
-              <span id="masterVolumeText" style="font-size: 14px; width: 35px; text-align: right;">50%</span>
+              <span id="masterVolumeText" style="font-size: 1.5cqw; width: 3.5cqw; text-align: right;">50%</span>
             </div>
           </div>
           <div class="setting-item">
             <label>기본 BGM</label>
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 1cqw;">
               <input type="range" id="normalBgmVolume" min="0" max="100" value="50">
-              <span id="normalBgmVolumeText" style="font-size: 14px; width: 35px; text-align: right;">50%</span>
+              <span id="normalBgmVolumeText" style="font-size: 1.5cqw; width: 3.5cqw; text-align: right;">50%</span>
             </div>
           </div>
           <div class="setting-item">
             <label>보스 BGM</label>
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 1cqw;">
               <input type="range" id="bossBgmVolume" min="0" max="100" value="50">
-              <span id="bossBgmVolumeText" style="font-size: 14px; width: 35px; text-align: right;">50%</span>
+              <span id="bossBgmVolumeText" style="font-size: 1.5cqw; width: 3.5cqw; text-align: right;">50%</span>
             </div>
           </div>
           <div class="setting-item">
             <label>점프 효과음</label>
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 1cqw;">
               <input type="range" id="jumpVolume" min="0" max="100" value="50">
-              <span id="jumpVolumeText" style="font-size: 14px; width: 35px; text-align: right;">50%</span>
+              <span id="jumpVolumeText" style="font-size: 1.5cqw; width: 3.5cqw; text-align: right;">50%</span>
             </div>
           </div>
           <div class="setting-item">
             <label>게임오버 효과음</label>
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 1cqw;">
               <input type="range" id="deathVolume" min="0" max="100" value="50">
-              <span id="deathVolumeText" style="font-size: 14px; width: 35px; text-align: right;">50%</span>
+              <span id="deathVolumeText" style="font-size: 1.5cqw; width: 3.5cqw; text-align: right;">50%</span>
             </div>
           </div>
         </div>
       </div>
-      <div style="display: flex; gap: 15px; margin-top: 20px;">
+      <div style="display: flex; gap: 1.5cqw; margin-top: 2cqh;">
         <button id="resetSettingsBtn" class="ui-button secondary">🔄 기본키로 초기화</button>
         <button id="closeSettingsBtn" class="ui-button">저장 및 닫기</button>
       </div>
@@ -718,7 +741,7 @@
 
     <div id="gameOverScreen" class="overlayScreen hidden">
       <h1>여정 종료</h1>
-      <p id="finalScoreText" style="font-size: 28px; font-weight: bold; color: #ffe600;">달성한 점수 : 0</p>
+      <p id="finalScoreText" style="font-size: 2.8cqw; font-weight: bold; color: #ffe600;">달성한 점수 : 0</p>
       <div id="recordSection">
         <input type="text" id="playerName" placeholder="이름 입력 (최대 8자)" maxlength="8" autocomplete="off">
         <button id="saveScoreBtn" class="ui-button" style="margin-bottom: 0;">기록 저장</button>
@@ -1017,10 +1040,10 @@
       if (e) e.stopPropagation();
       globalNoticeScreen.classList.add('hidden');
     }
-
+    /* 🌟 gameContainer의 실제 픽셀 크기에 맞춰 캔버스를 스케일링합니다. */
     function resizeGame() {
-      const windowWidth = window.innerWidth;
-      const windowHeight = window.innerHeight;
+      const windowWidth = gameContainer.clientWidth || window.innerWidth;
+      const windowHeight = gameContainer.clientHeight || window.innerHeight;
       canvas.width = windowWidth;
       canvas.height = windowHeight;
       gameScale = windowHeight / VIRTUAL_HEIGHT;
@@ -1909,7 +1932,7 @@
       if (cachedData) {
         updateLeaderboardUI(JSON.parse(cachedData));
       } else {
-        leaderboardDisplay.innerHTML = '<h3>🏆 명예의 전당 🏆</h3><p style="font-size:14px; color:#aaa;">데이터를 가져오는 중...</p>';
+        leaderboardDisplay.innerHTML = '<h3>🏆 명예의 전당 🏆</h3><p style="font-size:1.5cqw; color:#aaa;">데이터를 가져오는 중...</p>';
       }
       isFetchingLeaderboard = true;
       fetch(`${SHEET_WEB_APP_URL}?action=get&t=${Date.now()}`, {
@@ -1929,7 +1952,7 @@
 
     function updateLeaderboardUI(leaderboard) {
       if (!leaderboard || leaderboard.length === 0) {
-        leaderboardDisplay.innerHTML = '<h3>🏆 명예의 전당 🏆</h3><p style="font-size:15px; margin-top:10px;">기록된 방랑자가 없습니다.</p>';
+        leaderboardDisplay.innerHTML = '<h3>🏆 명예의 전당 🏆</h3><p style="font-size:1.6cqw; margin-top:1cqh;">기록된 방랑자가 없습니다.</p>';
         return;
       }
       let html = '<h3>🏆 명예의 전당 🏆</h3><table><tr><th>순위</th><th>이름</th><th>점수</th></tr>';
