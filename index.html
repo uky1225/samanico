@@ -671,10 +671,12 @@
     const playerNameInput = document.getElementById('playerName');
     const saveScoreBtn = document.getElementById('saveScoreBtn');
     const skipSaveBtn = document.getElementById('skipSaveBtn');
+    
     let gameState = 'START';
     let animationId;
     let score = 0;
     let lastTime = 0;
+    let smoothedDelta = 16.67; // 미세 프레임 보정용 지수 필터 추가
     let animationFrameCount = 0;
     let spawnTimer = 0;
     let currentSpawnTarget = 60;
@@ -747,7 +749,7 @@
     let sfxGain = null; // 원거리 공격, 피격 범용 효과음 버스
     // 임시 볼륨값 저장 및 초기값 세팅 (0.0 ~ 1.0)
     const audioVolumes = {
-      master: 3,
+      master: 2.7,
       normalBgm: 3,
       bossBgm: 1,
       jump: 0.6,
@@ -980,7 +982,7 @@
       infoDiv.innerHTML = `
         <p><strong>[ 움직임(슬라이드) ]</strong> ${leftKey} / ${rightKey} &nbsp;&nbsp; <strong>[ 웅크리기(슬라이드) ]</strong> ${crouchKey} &nbsp;&nbsp; <strong>[ ESC ]</strong> 처음으로</p>
         <p><strong>[ 점프(슬라이드,터치) ]</strong> ${jumpKey} &nbsp;&nbsp; <strong>[ 공격 ]</strong> ${attackKey},터치 &nbsp;&nbsp; 
-           <span style="color: #fff034; font-weight: bold;">[ 업데이트 ] 보스 패턴</span>
+           <span style="color: #fff034; font-weight: bold;">[ 업데이트 ] 보스 패턴.</span>
         </p>
       `;
     }
@@ -1371,12 +1373,12 @@
         proj.y < target.y + target.height && proj.y + proj.height > target.y);
     }
 
+    // 🌟 화면 '지지직' 잔상 해결: 매 프레임 clearRect로 완전 초기화 진행 후 보스룸 레이어 추가
     function drawBackground() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height); 
       if (gameState === 'BOSS_BATTLE') {
         ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-      } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
       ctx.fillStyle = '#4a154b';
       ctx.beginPath();
@@ -1389,6 +1391,7 @@
       ctx.fill();
     }
 
+    // 🌟 렌더 좌표 정수화: d.x 연산은 정밀하게 실수로 하되, 그리는 시점에 Math.round 처리
     function updateAndDrawDunes(timeScale = 1) {
       ctx.fillStyle = '#220b29';
       ctx.beginPath();
@@ -1396,8 +1399,8 @@
       dunes.forEach(d => {
         if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') d.x -= (currentGameSpeed * 0.4) * timeScale;
         if (d.x <= -d.width) d.x += d.width * 2;
-        const dx = d.x;
-        const dy = d.y;
+        const dx = Math.round(d.x);
+        const dy = Math.round(d.y);
         ctx.lineTo(dx, dy - Math.sin(d.offset) * 20);
         ctx.bezierCurveTo(dx + d.width * 0.3, dy - 60, dx + d.width * 0.7, dy - 60, dx + d.width, dy);
       });
@@ -1408,6 +1411,7 @@
       ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
     }
 
+    // 🌟 렌더 좌표 정수화: 플레이어 본체, 꼬리 효과선, 발사 무기의 좌표 튀기 보정
     function updateAndDrawPlayer(timeScale = 1) {
       if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') {
         if (isTouching) {
@@ -1466,9 +1470,9 @@
       }
       if (player.trail.length > 0) {
         ctx.beginPath();
-        ctx.moveTo(player.trail[0].x, player.trail[0].y);
+        ctx.moveTo(Math.round(player.trail[0].x), Math.round(player.trail[0].y));
         for (let i = 1; i < player.trail.length; i++) {
-          ctx.lineTo(player.trail[i].x - (player.trail.length - i) * 2, player.trail[i].y + Math.sin(animationFrameCount * 0.2 + i) * 3);
+          ctx.lineTo(Math.round(player.trail[i].x - (player.trail.length - i) * 2), Math.round(player.trail[i].y + Math.sin(animationFrameCount * 0.2 + i) * 3));
         }
         ctx.strokeStyle = '#e74c3c';
         ctx.lineWidth = 3;
@@ -1477,32 +1481,33 @@
       }
       ctx.shadowBlur = 0;
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(player.x, player.y + 5, player.width, player.height - 5);
+      ctx.fillRect(Math.round(player.x), Math.round(player.y + 5), player.width, player.height - 5);
       ctx.beginPath();
-      ctx.arc(player.x + player.width / 2, player.y + 2, 6, 0, Math.PI * 2);
+      ctx.arc(Math.round(player.x + player.width / 2), Math.round(player.y + 2), 6, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#d46c63';
-      ctx.fillRect(player.x - 5, player.y + player.height - 3, player.width + 10, 4);
+      ctx.fillRect(Math.round(player.x - 5), Math.round(player.y + player.height - 3), player.width + 10, 4);
       for (let i = player.projectiles.length - 1; i >= 0; i--) {
         let p = player.projectiles[i];
         p.x += p.speed * timeScale;
         ctx.fillStyle = '#ffe600';
         ctx.shadowColor = '#ffe600';
         ctx.shadowBlur = 10;
-        ctx.fillRect(p.x, p.y, p.width, p.height);
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), p.width, p.height);
         ctx.fillStyle = '#ffffff';
         ctx.shadowBlur = 0;
-        ctx.fillRect(p.x + 4, p.y + 2, p.width - 8, p.height - 4);
+        ctx.fillRect(Math.round(p.x + 4), Math.round(p.y + 2), p.width - 8, p.height - 4);
         if (p.x > canvas.width) player.projectiles.splice(i, 1);
       }
     }
 
+    // 🌟 렌더 좌표 정수화: 지상/공중 장애물 렌더링 시 sub-pixel 보정
     function updateAndDrawObstacles(timeScale, speed) {
       for (let i = 0; i < obstacles.length; i++) {
         let obs = obstacles[i];
         if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') obs.x -= speed * timeScale;
-        const x = obs.x;
-        const y = obs.y;
+        const x = Math.round(obs.x);
+        const y = Math.round(obs.y);
         ctx.shadowBlur = 15;
         if (obs.type === 'ground') {
           ctx.fillStyle = '#ffe600';
@@ -1543,6 +1548,7 @@
       }
     }
 
+    // 🌟 렌더 좌표 정수화: 보스 본체 및 보스 투사체의 렌더링 연산 정교화
     function updateAndDrawBoss(timeScale) {
       if (!boss.active) return;
       if (boss.x > canvas.width - 180 && !boss.leaving) boss.x -= 3 * timeScale;
@@ -1607,8 +1613,8 @@
           }
         }
       }
-      const bx = boss.x;
-      const by = boss.y;
+      const bx = Math.round(boss.x);
+      const by = Math.round(boss.y);
       if (boss.hitTimer > 0) {
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = '#ffffff';
@@ -1648,10 +1654,10 @@
         ctx.fillStyle = '#ff0055';
         ctx.shadowColor = '#ff0055';
         ctx.shadowBlur = 15;
-        ctx.fillRect(p.x, p.y, p.width, p.height);
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), p.width, p.height);
         ctx.fillStyle = '#ffffff';
         ctx.shadowBlur = 0;
-        ctx.fillRect(p.x + 5, p.y + 3, p.width - 10, p.height - 6);
+        ctx.fillRect(Math.round(p.x + 5), Math.round(p.y + 3), p.width - 10, p.height - 6);
         if (checkCollision(player, p)) endGame();
         if (p.x + p.width < 0) boss.projectiles.splice(i, 1);
       }
@@ -1677,11 +1683,17 @@
         animationId = requestAnimationFrame(loop);
       }
       if (!timestamp) timestamp = performance.now();
-      if (!lastTime) timestamp = performance.now();
+      if (!lastTime) lastTime = timestamp; // 첫 루프 시 시간 튀는 현상 원천 해결
       let deltaTime = timestamp - lastTime;
-      if (deltaTime > 50) deltaTime = 50;
+      
+      // 순간적인 네트워크/웹뷰 랙이나 탭 변경으로 발생하는 보간 스파이크 방지
+      if (deltaTime > 100) deltaTime = 16.67;
       lastTime = timestamp;
-      const timeScale = deltaTime / 16.67;
+
+      // 🌟 EMA 필터를 활용해 델타타임 주파수 스무딩 (144hz 및 가변 주사율 완벽 정돈)
+      smoothedDelta = (smoothedDelta * 0.85) + (deltaTime * 0.15);
+      const timeScale = smoothedDelta / 16.67;
+      
       animationFrameCount += timeScale;
       drawBackground();
       updateAndDrawDunes(timeScale);
@@ -1750,7 +1762,10 @@
       gameOverScreen.classList.add('hidden');
       initDunes();
       cancelAnimationFrame(animationId);
+      
+      // 🌟 리스타트 시 미세 떨림 방지를 위한 상태 초기화
       lastTime = performance.now();
+      smoothedDelta = 16.67; 
       animationFrameCount = 0;
       spawnTimer = 0;
       currentSpawnTarget = 60;
