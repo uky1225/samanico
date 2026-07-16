@@ -130,7 +130,8 @@
       position: fixed;
       left: 0;
       top: 0;
-      width: 100vw;
+      width: 100%;
+      height: 100%;
       height: 100dvh;
       margin: 0;
       padding: 0;
@@ -141,6 +142,7 @@
       overflow: hidden;
       font-family: 'Noto Serif KR', serif;
       user-select: none;
+      box-sizing: border-box;
     }
 
     #gameContainer {
@@ -152,6 +154,8 @@
       opacity: 0;
       transition: opacity 0.25s ease-in-out;
       container-type: size;
+      --cqw: 1cqw;
+      --cqh: 1cqh;
     }
 
     /* 🖥️ [가로 모드] 화면 전체 채우기 */
@@ -171,7 +175,8 @@
         position: relative;
         left: auto;
         top: auto;
-        width: 100vw;
+        width: 100%;
+        max-width: 100%;
         aspect-ratio: 16 / 9;
       }
     }
@@ -1041,12 +1046,16 @@
     }
 
     function resizeGame() {
-      const windowWidth = gameContainer.clientWidth || window.innerWidth;
-      const windowHeight = gameContainer.clientHeight || window.innerHeight;
+      const rect = gameContainer.getBoundingClientRect();
+      const windowWidth = Math.floor(rect.width) || window.innerWidth;
+      const windowHeight = Math.floor(rect.height) || window.innerHeight;
+      if (windowWidth === 0 || windowHeight === 0) return;
       canvas.width = windowWidth;
       canvas.height = windowHeight;
       gameScale = windowHeight / VIRTUAL_HEIGHT;
       virtualWidth = windowWidth / gameScale;
+      gameContainer.style.setProperty('--cqw', `${windowWidth / 100}px`);
+      gameContainer.style.setProperty('--cqh', `${windowHeight / 100}px`);
       if (gameState === 'START' || gameState === 'GAMEOVER') {
         initDunes();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1057,7 +1066,18 @@
         updateAndDrawPlayer();
       }
     }
-    window.addEventListener('resize', resizeGame);
+
+    function handleResize() {
+      resizeGame();
+      requestAnimationFrame(resizeGame);
+      setTimeout(resizeGame, 100);
+      setTimeout(resizeGame, 300);
+    }
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+    }
 
     function translateKeyToKorean(keyCode) {
       const map = {
@@ -2012,13 +2032,13 @@
     document.addEventListener('contextmenu', (e) => e.preventDefault());
     updateRebindButtonsUI();
     updateControlInfoUI();
-    resizeGame();
+    handleResize();
     initDunes();
     loadLeaderboard();
     checkNewNotices();
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
-        resizeGame();
+        handleResize();
         const container = document.getElementById('gameContainer');
         if (container) {
           container.style.opacity = '1';
