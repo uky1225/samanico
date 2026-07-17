@@ -90,29 +90,6 @@
       }, randomDelay);
     }
     scheduleRandomUpdateCheck();
-    // 탭 전환 시 이동 조작을 초기화하여 무한 이동 현상을 방지합니다.
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        console.log("앱 복귀 감지: 즉시 업데이트 검사 중...");
-        checkForUpdates();
-        if (swRegistration) swRegistration.update();
-      } else {
-        if (typeof keyStates !== 'undefined') {
-          keyStates.moveLeft = false;
-          keyStates.moveRight = false;
-        }
-        isTouching = false;
-        touchXDelta = 0;
-      }
-    });
-    window.addEventListener('blur', () => {
-      if (typeof keyStates !== 'undefined') {
-        keyStates.moveLeft = false;
-        keyStates.moveRight = false;
-      }
-      isTouching = false;
-      touchXDelta = 0;
-    });
   </script>
 
   <script type="module">
@@ -211,7 +188,6 @@
       height: 100%;
     }
 
-    /* --- 반응형 UI 요소 전체 축소 설정 --- */
     #scoreBoard {
       position: absolute;
       top: 3cqh;
@@ -529,7 +505,7 @@
       cursor: default;
     }
 
-    /* 상위의 user-select: none을 해제하여 모바일 키보드 팝업이 작동하도록 수정 */
+    /* 🌟 중요 수정: touch-action 및 user-select 강제 지정으로 가상 키보드 완전 활성화 */
     #recordSection input {
       padding: 1cqh 1.5cqw;
       font-size: 1.6cqw;
@@ -541,6 +517,7 @@
       outline: none;
       -webkit-user-select: text !important;
       user-select: text !important;
+      touch-action: auto !important;
     }
 
     .blink-text {
@@ -1509,6 +1486,33 @@
       if (e.code === keyBindings.moveRight || e.code === 'ArrowRight') keyStates.moveRight = false;
     });
 
+    /* 🌟 중요 수정: 탭 전환, 창 포커스 아웃/인 시 모든 조작 및 캐릭터 상태를 확실히 리셋 */
+    function resetAllInputStates() {
+      if (typeof keyStates !== 'undefined') {
+        keyStates.moveLeft = false;
+        keyStates.moveRight = false;
+      }
+      isTouching = false;
+      touchXDelta = 0;
+      swipeUpDist = 0;
+      swipeDownDist = 0;
+      if (typeof player !== 'undefined' && player.isCrouching) {
+        player.isCrouching = false;
+        player.height = player.normalHeight;
+        player.y = groundY - player.height;
+      }
+      console.log("조작 및 캐릭터 상태 초기화 완료");
+    }
+    window.addEventListener('blur', resetAllInputStates);
+    window.addEventListener('focus', resetAllInputStates);
+    document.addEventListener('visibilitychange', () => {
+      resetAllInputStates();
+      if (document.visibilityState === 'visible') {
+        if (typeof checkForUpdates === 'function') checkForUpdates();
+        if (window.swRegistration) window.swRegistration.update();
+      }
+    });
+
     function checkCollision(rect1, rect2) {
       const paddingX = 4;
       const paddingY = 4;
@@ -1941,8 +1945,7 @@
       recordSection.style.display = 'flex';
       gameOverScreen.classList.remove('hidden');
       bossWarningUI.classList.remove('warning-active');
-      keyStates.moveLeft = false;
-      keyStates.moveRight = false;
+      resetAllInputStates();
       obstacles = [];
       boss.active = false;
       boss.leaving = false;
