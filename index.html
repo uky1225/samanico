@@ -467,23 +467,23 @@
       background: rgba(0, 0, 0, 0.75);
       border: 1px solid #d46c63;
       border-radius: 0.8cqw;
-      padding: 1.5cqh 2.5cqw;
+      padding: 1.2cqh 2cqw; /* 패딩을 살짝 줄여 공간 확보 */
       width: 36cqw;
       max-width: 90%;
-      margin-bottom: 1.5cqh;
+      margin-bottom: 1.2cqh;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
       display: flex;
       flex-direction: column;
     }
 
     .leaderboard-box h3 {
-      margin: 0 0 1.2cqh 0;
+      margin: 0 0 0.8cqh 0;
       color: #ffe600;
-      font-size: 1.8cqw;
+      font-size: 1.6cqw;
     }
 
     .leaderboard-table-container {
-      max-height: 25.5cqh;
+      max-height: 22cqh; /* 너무 길지 않게 설정하되 5위까지 충분히 들어가도록 조정 */
       overflow-y: auto;
       width: 100%;
       padding-right: 0.4cqw;
@@ -513,8 +513,8 @@
       color: #d46c63;
       font-weight: bold;
       border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-      height: 4.5cqh;
-      font-size: 1.4cqw;
+      height: 3.2cqh; /* 행 높이 축소 */
+      font-size: 1.2cqw;
       position: sticky;
       top: 0;
       background: #000000;
@@ -523,15 +523,15 @@
     }
 
     .leaderboard-box tr {
-      height: 4.2cqh;
+      height: 3.2cqh; /* 행 높이 축소로 5위까지 한눈에 보이도록 보정 */
       box-sizing: border-box;
     }
 
     .leaderboard-box td {
-      padding: 0.4cqh 0;
+      padding: 0.2cqh 0;
       vertical-align: middle;
       color: #ffffff;
-      font-size: 1.4cqw;
+      font-size: 1.2cqw; /* 글꼴 크기를 살짝 최적화 */
     }
 
     #recordSection {
