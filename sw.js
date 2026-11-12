@@ -1,6 +1,6 @@
 // 🌟 서비스 워커 버전 변경
 // 새 버전이 배포되면 브라우저가 변경 사항을 감지합니다.
-const CACHE_NAME = 'Samanico_v1.13';
+const CACHE_NAME = 'Samanico_v1.14';
 
 // 캐싱할 기본 파일
 const ASSETS = [
