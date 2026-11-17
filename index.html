@@ -1989,36 +1989,35 @@
     }
 
     function spawnObstacle(timeScale) {
+      // 기존 사막 러너의 배치 규칙을 복원합니다.
+      // 점수가 높아질수록 한 묶음의 장애물 수와 출현 빈도를 늘리고,
+      // 새로운 장애물 종류는 단계별로 해금해 난이도를 올립니다.
       const tier = score < 1500 ? 0 : score < 3500 ? 1 : score < 6000 ? 2 : score < 8500 ? 3 : 4;
       const ease = player.obstacleEase || 1;
-      // 5000점 이후에도 장애물이 화면을 빽빽하게 채우지 않도록 최소 생성 간격을 보장합니다.
-      const spawnRate = Math.max(58, (96 - score / 190) * ease);
+      const spawnRate = Math.max(30, (92 - Math.floor(score / 120) * 3.2) * ease);
       spawnTimer += timeScale;
       if (spawnTimer >= currentSpawnTarget) {
         spawnTimer = 0;
-        currentSpawnTarget = Math.random() * 16 + spawnRate;
-        // 한 번에 최대 2개만 생성하고 간격도 확보해 연속 회피가 불가능한 조합을 줄입니다.
-        const spawnCount = Math.random() < (tier >= 3 ? .22 : .14) ? 2 : 1;
+        currentSpawnTarget = Math.random() * 22 + spawnRate;
+        // 원래 배치 방식 유지: 후반으로 갈수록 한 번에 등장하는 수가 늘어납니다.
+        const maxSpawn = Math.min(5, 2 + tier);
+        const spawnCount = 1 + Math.floor(Math.random() * maxSpawn);
         for (let i = 0; i < spawnCount; i++) {
-          const x = virtualWidth + i * (Math.random() * 115 + 145);
+          const x = virtualWidth + i * (Math.random() * 85 + 55);
           const r = Math.random();
           let obs;
-          // 8종 장애물을 초반부터 모두 등장시키되, 점수가 높아질수록 후반 장애물의 비율을 조금 높입니다.
-          const weights = tier === 0 ? [.16,.12,.14,.20,.12,.10,.08,.08]
-            : tier === 1 ? [.15,.11,.13,.17,.13,.12,.10,.09]
-            : tier === 2 ? [.14,.10,.12,.15,.14,.13,.12,.10]
-            : tier === 3 ? [.13,.10,.11,.14,.15,.14,.12,.11]
-            : [.12,.09,.10,.13,.16,.15,.13,.12];
-          let pick=0, roll=r;
-          while(pick<weights.length-1 && roll>=weights[pick]){roll-=weights[pick];pick++;}
-          if(pick===0) obs={x,y:groundY-60,width:100,height:16,type:'platform'};
-          else if(pick===1) obs={x,y:groundY-(tier>=2?150:122),width:44,height:28,type:'high_air'};
-          else if(pick===2) obs={x,y:groundY-58,width:46,height:24,type:'air'};
-          else if(pick===3){const h=42+Math.random()*20;obs={x,y:groundY-h,width:36+Math.random()*14,height:h,type:'ground',groundAnchored:true};}
-          else if(pick===4) obs={x,y:groundY-44,width:76,height:44,type:'spike_row'};
-          else if(pick===5) obs={x,y:groundY-110-Math.random()*38,width:42,height:38,type:'falling_rock',delay:Math.random()*28};
-          else if(pick===6) obs={x,y:groundY-34,width:112,height:34,type:'sand_vent',phase:Math.random()*6.28};
-          else obs={x,y:groundY-88,width:54,height:68,type:'moving_shard',phase:Math.random()*6.28};
+          // 초반 기본 장애물 배분은 기존 값 그대로 유지합니다.
+          if (r < .24) obs = {x,y:groundY-60,width:95,height:16,type:'platform'};
+          else if (r < .43) obs = {x,y:groundY-(tier>=2?145:110),width:42,height:26,type:'high_air'};
+          else if (r < .62) obs = {x,y:groundY-55,width:42,height:22,type:'air'};
+          else if (r < .76) { const h=42+Math.random()*18; obs={x,y:groundY-h,width:34+Math.random()*12,height:h,type:'ground',groundAnchored:true}; }
+          // 새 장애물은 점수 구간마다 차례로 추가됩니다.
+          else if (tier>=1 && r < .85) obs={x,y:groundY-42,width:70,height:42,type:'spike_row'};
+          else if (tier>=2 && r < .92) obs={x,y:groundY-90-Math.random()*55,width:38,height:34,type:'falling_rock',delay:Math.random()*40};
+          else if (tier>=3 && r < .97) obs={x,y:groundY-30,width:105,height:30,type:'sand_vent',phase:Math.random()*6.28};
+          else if (tier>=4) obs={x,y:groundY-80,width:52,height:65,type:'moving_shard',phase:Math.random()*6.28};
+          // 아직 해금되지 않은 구간의 남는 확률은 원래처럼 선인장으로 채웁니다.
+          else { const h=34+Math.random()*8; obs={x,y:groundY-h,width:38,height:h,type:'ground',groundAnchored:true}; }
           obstacles.push(obs);
         }
       }
@@ -3312,7 +3311,7 @@
       updateAndDrawDunes(timeScale);
       // 5000점 이후 속도가 급격히 치솟던 기존 score/170 증가식을 완만한 곡선으로 변경합니다.
       // 5000점 약 14.3, 10000점 약 17.1 수준으로 제한해 회피 반응 시간을 확보합니다.
-      currentGameSpeed = baseGameSpeed + Math.min(score,5000)/500 + Math.max(0,score-5000)/1800;
+      currentGameSpeed = baseGameSpeed + Math.min(score,5000)/750 + Math.max(0,score-5000)/2200;
       const obstacleSpeed = currentGameSpeed;
       if (gameState === 'PLAYING') {
         spawnObstacle(timeScale);
