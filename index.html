@@ -300,7 +300,17 @@
 
     .warning-active {
       animation: bossBlink 0.5s infinite alternate;
-      opacity: 1 !important;
+      opacity: 1;
+    }
+
+    /* 2번째 보스부터는 등장 문구가 깜빡이지 않고 천천히 사라집니다. */
+    .warning-active.boss-warning-modern {
+      animation: bossArrivalFade 3.8s ease-out forwards;
+    }
+    @keyframes bossArrivalFade {
+      0% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+      55% { opacity: .92; transform: translateY(-5px) scale(1.025); filter: blur(0); }
+      100% { opacity: 0; transform: translateY(-24px) scale(.96); filter: blur(5px); }
     }
 
     @keyframes bossBlink {
@@ -1345,6 +1355,13 @@
       </div>
       <div class="blink-text">이름 입력 후 엔터를 누르거나 '저장 안함'을 누르세요</div>
     </div>
+    <div id="gameClearScreen" class="overlayScreen hidden">
+      <h1 style="color:#ffe08a;text-shadow:0 0 18px rgba(255,190,90,.75)">GAME CLEAR</h1>
+      <p style="font-size:clamp(22px,3.4cqmin,34px);font-weight:bold;color:#fff0c8">모든 보스를 물리쳤습니다!</p>
+      <p id="clearScoreText">최종 점수 : 0점</p>
+      <p>사막의 긴 여정이 끝났습니다.</p>
+      <button id="clearReturnBtn" class="ui-button">로비로 돌아가기</button>
+    </div>
   </div>
 
   <script>
@@ -1403,7 +1420,6 @@
     let currentGameSpeed = 6.5;
     let nextBossScore = 1000;
     let bossLevel = 1;
-    let selectedItemIds = [];
     const bossScoreMilestones = [1000, 2000, 4000, 6000, 8000, 10000];
     const rewardScreen = document.getElementById('itemRewardScreen');
     const rewardChoices = document.getElementById('rewardChoices');
@@ -1416,17 +1432,19 @@
       {id:'rapid',name:'바람의 깃털',desc:'공격 재사용 대기시간이 18% 감소합니다.',apply(){player.shootCooldownFactor=(player.shootCooldownFactor||1)*.82;}},
       {id:'jump',name:'도약의 룬',desc:'점프력이 12% 증가합니다.',apply(){player.jumpPower*=1.12;}},
       {id:'haste',name:'유랑자의 장화',desc:'이동 속도가 8% 증가합니다.',apply(){player.speedX*=1.08;}},
-      {id:'guard',name:'사암 방벽',desc:'다음 충돌 1회를 막는 보호막을 얻습니다.',apply(){player.shieldCharges=(player.shieldCharges||0)+1;addRewardNotice('사암 방벽', 'shield');}},
+      {id:'guard',name:'생명의 결정',desc:'최대 체력이 1 증가하고 체력을 1 회복합니다.',apply(){player.maxHp=(player.maxHp||3)+1;player.hp=Math.min(player.maxHp,(player.hp||0)+1);addRewardNotice(`최대 체력 증가 · ${player.hp}/${player.maxHp}`,'passive');}},
       {id:'pierce',name:'관통 수정',desc:'플레이어 탄환이 적을 관통하는 힘을 얻습니다.',apply(){player.piercing=true;}},
       {id:'double',name:'쌍둥이 별',desc:'공격할 때 보조 탄환을 추가로 발사합니다.',apply(){player.doubleShot=true;}},
-      {id:'magnet',name:'유물 자석',desc:'점수 획득량이 10% 증가합니다.',apply(){player.scoreBonus=(player.scoreBonus||1)*1.1;}},
+      {id:'magnet',name:'생명력의 수정',desc:'최대 체력이 1 증가하고 체력을 모두 회복합니다.',apply(){player.maxHp=(player.maxHp||3)+1;player.hp=player.maxHp;addRewardNotice(`체력 완전 회복 · ${player.hp}/${player.maxHp}`,'passive');}},
       {id:'cool',name:'서리 심장',desc:'보스의 공격 발사 간격이 조금 길어집니다.',apply(){player.bossSlow=(player.bossSlow||1)*.92;}},
       {id:'flare',name:'섬광 폭탄',desc:'다음 보스전 시작 순간 큰 피해를 줍니다.',apply(){player.bossOpeningDamage=(player.bossOpeningDamage||0)+12;addRewardNotice('섬광 폭탄', 'next-boss');}},
       {id:'focus',name:'집중의 눈',desc:'공격 피해량이 12% 증가합니다.',apply(){player.damage=(player.damage||1)*1.12;}},
-      {id:'sandstep',name:'모래걸음',desc:'장애물 생성 빈도가 소폭 감소합니다.',apply(){player.obstacleEase=(player.obstacleEase||1)*.92;}},
-      {id:'heart',name:'붉은 심장석',desc:'다음 충돌 1회를 막는 붉은 보호막을 얻습니다.',apply(){player.shieldCharges=(player.shieldCharges||0)+1;addRewardNotice('붉은 심장석', 'shield');}},
+      {id:'sandstep',name:'회복의 샘',desc:'체력을 2 회복합니다. 최대 체력을 넘을 수 없습니다.',apply(){player.hp=Math.min(player.maxHp||3,(player.hp||0)+2);addRewardNotice(`체력 회복 · ${player.hp}/${player.maxHp||3}`,'passive');}},
+      {id:'oasis',name:'오아시스의 물병',desc:'체력을 최대 3 회복합니다. 최대 체력을 넘을 수 없습니다.',apply(){player.hp=Math.min(player.maxHp||3,(player.hp||0)+3);addRewardNotice(`체력 회복 · ${player.hp}/${player.maxHp||3}`,'passive');}},
+      {id:'heartstone',name:'고대 생명의 핵',desc:'최대 체력이 2 증가하고 체력을 1 회복합니다.',apply(){player.maxHp=(player.maxHp||3)+2;player.hp=Math.min(player.maxHp,(player.hp||0)+1);addRewardNotice(`최대 체력 증가 · ${player.hp}/${player.maxHp}`,'passive');}},
+      {id:'heart',name:'붉은 심장석',desc:'체력을 1 회복하고 짧은 시간 동안 피격 후 무적 시간이 늘어납니다.',apply(){player.hp=Math.min(player.maxHp||3,(player.hp||0)+1);player.hitGraceBonus= Math.max(player.hitGraceBonus||0,18);addRewardNotice(`체력 회복 · ${player.hp}/${player.maxHp||3}`,'passive');}},
       {id:'echo',name:'메아리 탄환',desc:'탄환 속도가 20% 증가합니다.',apply(){player.projectileSpeed=(player.projectileSpeed||14)*1.2;}},
-      {id:'fortune',name:'사막의 행운',desc:'점수 획득량이 15% 증가합니다.',apply(){player.scoreBonus=(player.scoreBonus||1)*1.15;}},
+      {id:'fortune',name:'생존자의 은총',desc:'체력을 1 회복하고 다음 보스의 첫 공격 피해를 1 감소시킵니다.',apply(){player.hp=Math.min(player.maxHp||3,(player.hp||0)+1);player.nextBossDamageReduction=(player.nextBossDamageReduction||0)+1;addRewardNotice(`체력 회복 · ${player.hp}/${player.maxHp||3}`,'passive');}},
       {id:'cloak',name:'그림자 망토',desc:'공중 장애물과의 충돌 판정이 조금 줄어듭니다.',apply(){player.hitboxScale=(player.hitboxScale||1)*.9;}},
       {id:'overload',name:'과충전 코어',desc:'공격 피해량이 18% 증가하지만 보스가 더 공격적이 됩니다.',apply(){player.damage=(player.damage||1)*1.18;player.riskPower=true;}},
       {id:'anchor',name:'중력 닻',desc:'공중에서 자세를 안정적으로 제어합니다.',apply(){player.airControl=(player.airControl||1)*1.25;}},
@@ -1443,6 +1461,13 @@
       width: 90,
       height: 135,
       projectiles: [],
+      hazards: [],
+      arenaProps: [],
+      arenaPropTimer: 0,
+      safePlatforms: [],
+      safePlatformTimer: 0,
+      titleFadeTimer: 0,
+      hazardTimer: 0,
       shootTimer: 0,
       hitTimer: 0,
       kind: 1,
@@ -1485,10 +1510,14 @@
       speedX: 8,
       isGrounded: true,
       isCrouching: false,
+      hitGraceTimer: 0,
       trail: [],
       projectiles: [],
       shootCooldown: 0,
       damage: 1,
+      hp: 3,
+      maxHp: 3,
+      hitFlashTimer: 0,
     };
     player.y = groundY - player.height;
     let obstacles = [];
@@ -1662,6 +1691,12 @@
       };
       let step = 0;
       let lastMode = '';
+      if(normalBgmGain && bossBgmGain){
+        const now=audioCtx.currentTime;
+        normalBgmGain.gain.cancelScheduledValues(now);bossBgmGain.gain.cancelScheduledValues(now);
+        normalBgmGain.gain.setValueAtTime(audioVolumes.normalBgm,now);
+        bossBgmGain.gain.setValueAtTime(.0001,now);
+      }
       stopBgmTimer = accurateTimer(() => {
         if (gameState !== 'PLAYING' && gameState !== 'BOSS_BATTLE') {
           if (stopBgmTimer) stopBgmTimer();
@@ -1669,7 +1704,14 @@
         }
         const isBoss = gameState === 'BOSS_BATTLE';
         const mode = isBoss ? `boss-${boss.kind}` : 'run';
-        if (mode !== lastMode) { step = 0; lastMode = mode; }
+        if (mode !== lastMode) {
+          step = 0; lastMode = mode;
+          // 일반곡과 보스곡이 겹쳐 같은 음악처럼 들리지 않도록 모드를 바꿀 때 서로 교차 페이드합니다.
+          const now=audioCtx.currentTime;
+          normalBgmGain.gain.cancelScheduledValues(now); bossBgmGain.gain.cancelScheduledValues(now);
+          normalBgmGain.gain.setTargetAtTime(isBoss?0.035:audioVolumes.normalBgm,now,.22);
+          bossBgmGain.gain.setTargetAtTime(isBoss?audioVolumes.bossBgm:0.0001,now,.22);
+        }
         const track = isBoss ? (bossTracks[boss.kind] || bossTracks[1]) : normalTrack;
         const time = audioCtx.currentTime;
         const destination = isBoss ? bossBgmGain : normalBgmGain;
@@ -1949,26 +1991,34 @@
     function spawnObstacle(timeScale) {
       const tier = score < 1500 ? 0 : score < 3500 ? 1 : score < 6000 ? 2 : score < 8500 ? 3 : 4;
       const ease = player.obstacleEase || 1;
-      const spawnRate = Math.max(30, (92 - Math.floor(score / 120) * 3.2) * ease);
+      // 5000점 이후에도 장애물이 화면을 빽빽하게 채우지 않도록 최소 생성 간격을 보장합니다.
+      const spawnRate = Math.max(58, (96 - score / 190) * ease);
       spawnTimer += timeScale;
       if (spawnTimer >= currentSpawnTarget) {
         spawnTimer = 0;
-        currentSpawnTarget = Math.random() * 22 + spawnRate;
-        const maxSpawn = Math.min(5, 2 + tier);
-        const spawnCount = 1 + Math.floor(Math.random() * maxSpawn);
+        currentSpawnTarget = Math.random() * 16 + spawnRate;
+        // 한 번에 최대 2개만 생성하고 간격도 확보해 연속 회피가 불가능한 조합을 줄입니다.
+        const spawnCount = Math.random() < (tier >= 3 ? .22 : .14) ? 2 : 1;
         for (let i = 0; i < spawnCount; i++) {
-          const x = virtualWidth + i * (Math.random() * 85 + 55);
+          const x = virtualWidth + i * (Math.random() * 115 + 145);
           const r = Math.random();
           let obs;
-          if (r < .24) obs = {x,y:groundY-60,width:95,height:16,type:'platform'};
-          else if (r < .43) obs = {x,y:groundY-(tier>=2?145:110),width:42,height:26,type:'high_air'};
-          else if (r < .62) obs = {x,y:groundY-55,width:42,height:22,type:'air'};
-          else if (r < .76) { const h=42+Math.random()*18; obs={x,y:groundY-h,width:34+Math.random()*12,height:h,type:'ground',groundAnchored:true}; }
-          else if (tier>=1 && r < .85) obs={x,y:groundY-42,width:70,height:42,type:'spike_row'};
-          else if (tier>=2 && r < .92) obs={x,y:groundY-90-Math.random()*55,width:38,height:34,type:'falling_rock',delay:Math.random()*40};
-          else if (tier>=3 && r < .97) obs={x,y:groundY-30,width:105,height:30,type:'sand_vent'};
-          else if (tier>=4) obs={x,y:groundY-80,width:52,height:65,type:'moving_shard',phase:Math.random()*6.28};
-          else obs={x,y:groundY-48,width:38,height:32,type:'ground'};
+          // 8종 장애물을 초반부터 모두 등장시키되, 점수가 높아질수록 후반 장애물의 비율을 조금 높입니다.
+          const weights = tier === 0 ? [.16,.12,.14,.20,.12,.10,.08,.08]
+            : tier === 1 ? [.15,.11,.13,.17,.13,.12,.10,.09]
+            : tier === 2 ? [.14,.10,.12,.15,.14,.13,.12,.10]
+            : tier === 3 ? [.13,.10,.11,.14,.15,.14,.12,.11]
+            : [.12,.09,.10,.13,.16,.15,.13,.12];
+          let pick=0, roll=r;
+          while(pick<weights.length-1 && roll>=weights[pick]){roll-=weights[pick];pick++;}
+          if(pick===0) obs={x,y:groundY-60,width:100,height:16,type:'platform'};
+          else if(pick===1) obs={x,y:groundY-(tier>=2?150:122),width:44,height:28,type:'high_air'};
+          else if(pick===2) obs={x,y:groundY-58,width:46,height:24,type:'air'};
+          else if(pick===3){const h=42+Math.random()*20;obs={x,y:groundY-h,width:36+Math.random()*14,height:h,type:'ground',groundAnchored:true};}
+          else if(pick===4) obs={x,y:groundY-44,width:76,height:44,type:'spike_row'};
+          else if(pick===5) obs={x,y:groundY-110-Math.random()*38,width:42,height:38,type:'falling_rock',delay:Math.random()*28};
+          else if(pick===6) obs={x,y:groundY-34,width:112,height:34,type:'sand_vent',phase:Math.random()*6.28};
+          else obs={x,y:groundY-88,width:54,height:68,type:'moving_shard',phase:Math.random()*6.28};
           obstacles.push(obs);
         }
       }
@@ -2208,6 +2258,30 @@
     }
 
     let dayCycleStartScore = 0;
+    function drawPlayerHealthHUD() {
+      const hp = Math.max(0, player.hp ?? 3), maxHp = player.maxHp ?? 3;
+      ctx.save();
+      ctx.font = 'bold 16px Arial, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(20,15,18,.72)';
+      ctx.fillRect(18, VIRTUAL_HEIGHT - 48, 126, 31);
+      ctx.fillStyle = '#f6e4d2';
+      ctx.fillText('HP', 28, VIRTUAL_HEIGHT - 27);
+      for (let i = 0; i < maxHp; i++) {
+        const x = 62 + i * 23, y = VIRTUAL_HEIGHT - 33;
+        ctx.beginPath();
+        ctx.moveTo(x, y + 7);
+        ctx.bezierCurveTo(x - 13, y - 1, x - 10, y - 11, x - 2, y - 7);
+        ctx.bezierCurveTo(x + 1, y - 12, x + 12, y - 5, x, y + 7);
+        ctx.closePath();
+        ctx.fillStyle = i < hp ? '#e84d59' : 'rgba(235,220,210,.22)';
+        ctx.strokeStyle = i < hp ? '#ffc1b8' : 'rgba(255,255,255,.28)';
+        ctx.lineWidth = 1;
+        ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     function drawBackground() {
       const bossTint = gameState === 'BOSS_BATTLE';
       const cycleLength = Math.max(1000, nextBossScore - dayCycleStartScore);
@@ -2247,6 +2321,29 @@
         ctx.beginPath(); for(let x=-220-offset;x<virtualWidth+260;x+=260){const crest=base-45-layer*9+Math.sin((x+offset)*.004+layer)*16;ctx.quadraticCurveTo(x+85,crest-28-layer*5,x+155,crest);} ctx.stroke(); ctx.restore();
       }
       if(bossTint){ctx.fillStyle=boss.kind===2?'rgba(75,145,170,.12)':boss.kind===3?'rgba(80,55,110,.16)':'rgba(120,50,55,.12)';ctx.fillRect(0,0,virtualWidth,VIRTUAL_HEIGHT);}
+      if(bossTint && boss.kind>1){
+        const arenaColors={2:'#72eaff',3:'#bd75ff',4:'#d9a15e',5:'#ffe28a',6:'#73e7d8'};
+        const ac=arenaColors[boss.kind]||'#ffffff';
+        ctx.save();ctx.globalAlpha=.12;ctx.strokeStyle=ac;ctx.lineWidth=3;
+        if(boss.kind===2){
+          // 서리 전장: 얼음 결정과 서리 낀 바닥 무늬
+          for(let x=40;x<virtualWidth;x+=150){ctx.beginPath();ctx.moveTo(x,groundY-5);ctx.lineTo(x+22,groundY-42);ctx.lineTo(x+44,groundY-5);ctx.stroke();}
+          ctx.fillStyle=ac;ctx.fillRect(0,groundY-3,virtualWidth,3);
+        }else if(boss.kind===3){
+          // 공허 전장: 천천히 회전하는 균열 고리
+          for(let n=0;n<5;n++){ctx.beginPath();ctx.ellipse(virtualWidth*.5,groundY-95,170+n*55,28+n*12,Math.sin(animationFrameCount*.01+n)*.12,0,Math.PI*2);ctx.stroke();}
+        }else if(boss.kind===4){
+          // 사막 거신 전장: 바위 기둥과 지면 균열
+          for(let x=90;x<virtualWidth;x+=230){ctx.beginPath();ctx.moveTo(x,groundY);ctx.lineTo(x+18,groundY-90-(x%3)*8);ctx.lineTo(x+55,groundY);ctx.stroke();}
+        }else if(boss.kind===5){
+          // 태양 전장: 지평선에서 뻗는 광휘의 광선
+          for(let n=0;n<13;n++){const x=virtualWidth*.5;const a=(n-6)*.13;ctx.beginPath();ctx.moveTo(x,groundY-20);ctx.lineTo(x+Math.sin(a)*virtualWidth,groundY-20-Math.cos(a)*virtualWidth*.7);ctx.stroke();}
+        }else{
+          // 신기루 전장: 겹쳐 보이는 잔상 아치
+          for(let n=0;n<7;n++){ctx.beginPath();ctx.ellipse(virtualWidth*.5,groundY-75,180+n*52,45+n*13,0,Math.PI,Math.PI*2);ctx.stroke();}
+        }
+        ctx.globalAlpha=.18;ctx.fillStyle=ac;ctx.fillRect(0,groundY-2,virtualWidth,2);ctx.restore();
+      }
     }
 
     function updateAndDrawDunes(timeScale = 1) {
@@ -2327,6 +2424,7 @@
     }
 
     function updateAndDrawPlayer(timeScale = 1) {
+      if (player.hitFlashTimer>0) player.hitFlashTimer=Math.max(0,player.hitFlashTimer-timeScale);
       if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') {
         if (isTouching) {
           const threshold = 0.5;
@@ -2349,14 +2447,14 @@
         if (player.x + player.width > virtualWidth - 20) player.x = virtualWidth - player.width - 20;
         if (player.shootCooldown > 0) player.shootCooldown -= timeScale;
         let targetFloor = groundY;
-        for (let obs of obstacles) {
-          if (obs.type === 'platform') {
-            let pRight = player.x + player.width;
-            let pLeft = player.x;
-            let prevBottom = (player.y + player.height) - (player.vy * timeScale);
-            if (pRight - 4 > obs.x && pLeft + 4 < obs.x + obs.width) {
-              if (player.vy >= 0 && prevBottom <= obs.y + 10) targetFloor = obs.y;
-            }
+        const standingSurfaces = obstacles.filter(o => o.type === 'platform');
+        if (gameState === 'BOSS_BATTLE' && boss.kind >= 2 && Array.isArray(boss.safePlatforms)) standingSurfaces.push(...boss.safePlatforms);
+        for (let obs of standingSurfaces) {
+          const pRight = player.x + player.width;
+          const pLeft = player.x;
+          const prevBottom = (player.y + player.height) - (player.vy * timeScale);
+          if (pRight - 4 > obs.x && pLeft + 4 < obs.x + obs.width) {
+            if (player.vy >= 0 && prevBottom <= obs.y + 12 && obs.y < targetFloor) targetFloor = obs.y;
           }
         }
         player.vy += player.gravity * (player.gravityFactor||1) * timeScale;
@@ -2398,6 +2496,7 @@
       const lobbyCharacterColor = localStorage.getItem('samanico_character_color') || '#f2eee5';
       const selectedCharacterType = Number(localStorage.getItem('samanico_character') || 0);
       drawPlayerSprite(ctx, px, py, player.width, player.height, lobbyCharacterColor, selectedCharacterType);
+      if(player.hitFlashTimer>0){ctx.save();ctx.globalAlpha=.42;ctx.fillStyle='#ff263f';ctx.fillRect(px,py,player.width,player.height);ctx.restore();}
       if((player.shieldCharges||0)>0){
         ctx.save();ctx.strokeStyle='rgba(130,220,255,.9)';ctx.lineWidth=3;ctx.shadowColor='#70dfff';ctx.shadowBlur=18;
         ctx.beginPath();ctx.ellipse(px+player.width/2,py+player.height/2,player.width*.95,player.height*.78,0,0,Math.PI*2);ctx.stroke();ctx.restore();
@@ -2409,6 +2508,7 @@
         player.shieldBreakTimer=Math.max(0,player.shieldBreakTimer-timeScale);
       }
       drawRewardHUD();
+      drawPlayerHealthHUD();
       for (let i = player.projectiles.length - 1; i >= 0; i--) {
         let p = player.projectiles[i];
         p.x += p.speed * timeScale;
@@ -2423,16 +2523,55 @@
       }
     }
 
-    function handlePlayerHit(){
-      if((player.shieldCharges||0)>0){player.shieldCharges--;player.shieldBreakTimer=26;addRewardNotice('보호막 사용 · 공격 방어','used');if(player.shieldCharges===0)removeRewardNotice('shield');return false;}
-      if((player.reviveCharges||0)>0){player.reviveCharges--;if(player.reviveCharges===0)removeRewardNotice('revive');addRewardNotice('불사조의 재 사용','used');player.x=Math.max(30,player.x-55);player.vy=player.jumpPower*.72;player.isGrounded=false;return false;}
-      endGame();return true;
+    function handlePlayerHit(damage=1, separateAttack=false){
+      // 일반 지형 충돌은 피격 유예로 프레임마다 중복 피해를 막습니다.
+      // 반면 실제 공격 투사체/보스 공격 판정은 각각 별개의 공격이므로 유예 시간과 무관하게 집계합니다.
+      if(!separateAttack && (player.hitGraceTimer||0)>0) return false;
+      if((player.shieldCharges||0)>0){player.shieldCharges--;player.shieldBreakTimer=26;player.hitGraceTimer=55;addRewardNotice('보호막 사용 · 공격 방어','used');if(player.shieldCharges===0)removeRewardNotice('shield');return false;}
+      if((player.reviveCharges||0)>0){player.reviveCharges--;if(player.reviveCharges===0)removeRewardNotice('revive');addRewardNotice('불사조의 재 사용','used');player.x=Math.max(30,player.x-55);player.vy=player.jumpPower*.72;player.isGrounded=false;player.hp=Math.max(1,player.hp||1);player.hitGraceTimer=70;return false;}
+      const incomingDamage=Math.max(1,Math.floor(damage||1)-(player.nextBossDamageReduction||0));
+      player.nextBossDamageReduction=0;
+      player.hp=Math.max(0,(player.hp??3)-incomingDamage);
+      player.hitFlashTimer=22;
+      player.hitGraceTimer=70+(player.hitGraceBonus||0);
+      addRewardNotice(`피해 -${incomingDamage} · 남은 체력 ${player.hp}/${player.maxHp||3}`,'used');
+      if(player.hp<=0){endGame();return true;}
+      return false;
+    }
+
+    // 전경 사구의 실제 곡선 높이. 작은/큰 지상 선인장 모두 모래 표면에 붙도록 사용합니다.
+    function getForegroundDuneSurfaceY(worldX) {
+      const w = virtualWidth, h = VIRTUAL_HEIGHT;
+      const x = Math.max(0, Math.min(w, worldX));
+      const x1 = w * 0.62;
+      let lo = 0, hi = 1, t = 0;
+      if (x <= x1) {
+        // 첫 번째 quadratic curve: (0,h) -> control(.32w, groundY+25) -> (.62w, groundY+13)
+        for (let n = 0; n < 18; n++) {
+          t = (lo + hi) / 2;
+          const bx = 2 * (1 - t) * t * (w * 0.32) + t * t * x1;
+          if (bx < x) lo = t; else hi = t;
+        }
+        return (1-t)*(1-t)*h + 2*(1-t)*t*(groundY+25) + t*t*(groundY+13);
+      }
+      // 두 번째 quadratic curve: (.62w, groundY+13) -> control(.82w, groundY+8) -> (w,h)
+      lo = 0; hi = 1;
+      for (let n = 0; n < 18; n++) {
+        t = (lo + hi) / 2;
+        const bx = (1-t)*(1-t)*x1 + 2*(1-t)*t*(w*0.82) + t*t*w;
+        if (bx < x) lo = t; else hi = t;
+      }
+      return (1-t)*(1-t)*(groundY+13) + 2*(1-t)*t*(groundY+8) + t*t*h;
     }
 
     function updateAndDrawObstacles(timeScale, speed) {
       for (let i = 0; i < obstacles.length; i++) {
         let obs = obstacles[i];
-        if (obs.type === 'ground' && obs.groundAnchored) obs.y = groundY - obs.height;
+        if (obs.type === 'ground') {
+          // 모든 크기의 지상 선인장은 실제 플레이 바닥선에 고정합니다.
+          obs.groundAnchored = true;
+          obs.y = groundY - obs.height;
+        }
         if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') obs.x -= speed * timeScale;
         if(obs.type==='falling_rock' && score>3000) obs.y += Math.min(2.2,Math.max(0,(score-3000)/3000))*timeScale;
         const x = Math.round(obs.x);
@@ -2512,11 +2651,155 @@
         }
         ctx.restore();
         ctx.shadowBlur = 0;
-        if ((gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') && checkCollision(player.hitboxScale&&player.hitboxScale<1?{...player,x:player.x+player.width*(1-player.hitboxScale)/2,width:player.width*player.hitboxScale}:player, obs)) { if(handlePlayerHit()) return; }
+        if (obs.type !== 'platform' && (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') && checkCollision(player.hitboxScale&&player.hitboxScale<1?{...player,x:player.x+player.width*(1-player.hitboxScale)/2,width:player.width*player.hitboxScale}:player, obs)) { if(handlePlayerHit()) return; }
         if (obs.x + obs.width < 0) {
           obstacles.splice(i, 1);
           i--;
         }
+      }
+    }
+
+    // 2~6번 보스 전용 안전 발판: 실제 착지·이동이 가능하며 접촉 피해는 없습니다.
+    function spawnBossSafePlatform(){
+      if(boss.kind<=1 || boss.leaving) return;
+      const k=boss.kind;
+      const palette={2:'#8cf7ff',3:'#c18cff',4:'#e5b36a',5:'#ffe08a',6:'#79eadb'};
+      const mode=Math.floor(Math.random()*3); // 고정 / 좌우 이동 / 일정 시간 후 소멸
+      const heightChoices=[groundY-76,groundY-104,groundY-128];
+      const y=heightChoices[Math.floor(Math.random()*heightChoices.length)];
+      const spawnX=Math.min(virtualWidth-145,Math.max(player.x+88,240));
+      boss.safePlatforms.push({x:spawnX,y,width:116,height:15,color:palette[k]||'#ffffff',mode,life:mode===2?170:300,age:0,vx:mode===0?-(1.15+k*.08):-(mode===1?1.8+k*.10:1.35),phase:Math.random()*Math.PI*2,baseY:y});
+    }
+    function updateAndDrawBossSafePlatforms(timeScale){
+      if(boss.kind<=1) return;
+      if(!Array.isArray(boss.safePlatforms)) boss.safePlatforms=[];
+      boss.safePlatformTimer=(boss.safePlatformTimer||0)+timeScale;
+      if(!boss.leaving && boss.safePlatformTimer>=112){boss.safePlatformTimer=0;spawnBossSafePlatform();}
+      for(let i=boss.safePlatforms.length-1;i>=0;i--){
+        const p=boss.safePlatforms[i];p.age+=timeScale;p.life-=timeScale;p.x+=p.vx*timeScale;
+        if(p.mode===1)p.y=p.baseY+Math.sin((animationFrameCount+p.phase)*.035)*15;
+        const alpha=p.mode===2?Math.min(1,p.life/28,p.age/10):Math.min(1,p.age/12,p.life/25);
+        ctx.save();ctx.globalAlpha=Math.max(0,alpha);ctx.shadowColor=p.color;ctx.shadowBlur=18;
+        const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);grad.addColorStop(0,'#ffffff');grad.addColorStop(.22,p.color);grad.addColorStop(1,'rgba(20,25,42,.92)');
+        ctx.fillStyle=grad;ctx.strokeStyle=p.color;ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(p.x+7,p.y);ctx.lineTo(p.x+p.width-7,p.y);ctx.lineTo(p.x+p.width,p.y+p.height);ctx.lineTo(p.x,p.y+p.height);ctx.closePath();ctx.fill();ctx.stroke();
+        ctx.globalAlpha*=.8;ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(p.x+13,p.y+4);ctx.lineTo(p.x+p.width-13,p.y+4);ctx.stroke();
+        if(p.mode===2){ctx.globalAlpha=Math.max(0,alpha)*.7;ctx.setLineDash([5,4]);ctx.strokeRect(p.x-3,p.y-4,p.width+6,p.height+8);ctx.setLineDash([]);}
+        ctx.restore();
+        if(p.life<=0||p.x+p.width<-30)boss.safePlatforms.splice(i,1);
+      }
+    }
+
+    // 보스별 전장 장애물: 생성 전 점선 예고 후 활성화됩니다. 모든 패턴에는 이동·점프·앉기로 피할 수 있는 통로를 둡니다.
+    function spawnBossHazard(){
+      // 첫 번째 보스는 기존 전투만 유지하고 신규 전장 공격을 추가하지 않습니다.
+      if (boss.kind <= 1) return;
+      const k=boss.kind, x=Math.min(virtualWidth-170,Math.max(320,player.x+460)), warning=64+(k%3)*8;
+      const palette={1:'#ff6b72',2:'#8cf7ff',3:'#c18cff',4:'#e5b36a',5:'#ffe08a',6:'#79eadb'};
+      const color=palette[k]||'#fff';
+      let h=[];
+      if(k===1){
+        // 붉은 망령: 플레이어가 있던 지점에 낙하하는 잔불 파편. 좌우 이동으로 회피.
+        h=[{type:'wraith_meteor',x:Math.min(virtualWidth-80,Math.max(240,player.x+150)),y:groundY-70,w:48,h:42,delay:warning,life:190,vx:-2.2,vy:.8,color}];
+      }else if(k===2){
+        // 서리 감시자: 양쪽 얼음 기둥 사이에 넓은 안전 통로가 남습니다.
+        h=[{type:'frost_gate',x,y:groundY-112,w:42,h:112,delay:warning,life:205,vx:-3.2,color},{type:'frost_gate',x:x+112,y:groundY-112,w:42,h:112,delay:warning,life:205,vx:-3.2,color}];
+      }else if(k===3){
+        // 공허의 지배자: 바닥에 열리는 균열. 점프로 넘을 수 있습니다.
+        h=[{type:'void_rift',x,y:groundY-22,w:138,h:22,delay:warning,life:205,vx:-3.5,color}];
+      }else if(k===4){
+        // 사막의 거신: 구르는 암석. 점프하거나 뒤로 물러나 피합니다.
+        h=[{type:'dune_roller',x,y:groundY-48,w:52,h:48,delay:warning,life:205,vx:-4.0,color}];
+      }else if(k===5){
+        // 태양의 심판자: 두 줄기 광선, 중앙의 넓은 빈 공간이 회피로입니다.
+        h=[{type:'solar_pillar',x,y:groundY-150,w:42,h:150,delay:warning,life:205,vx:-3.4,color},{type:'solar_pillar',x:x+112,y:groundY-150,w:42,h:150,delay:warning,life:205,vx:-3.4,color}];
+      }else{
+        // 신기루 추적자: 서 있는 높이를 가로지르는 잔상 베기. 앉아서 피할 수 있습니다.
+        h=[{type:'mirage_sweep',x,y:groundY-54,w:150,h:15,delay:warning,life:205,vx:-4.1,color}];
+      }
+      boss.hazards.push(...h);
+    }
+    // 보스별 전장 오브젝트: 공격과 같은 색상 계열을 사용하지만 접촉 피해는 주지 않습니다.
+    function spawnBossArenaProp(){
+      if(boss.kind<=1 || boss.leaving) return;
+      const k=boss.kind;
+      const palette={2:'#8cf7ff',3:'#c18cff',4:'#e5b36a',5:'#ffe08a',6:'#79eadb'};
+      const color=palette[k]||'#ffffff';
+      const variant=Math.floor(Math.random()*3); // 고정 / 이동 / 사라짐
+      const baseY=groundY-(k===2?150:k===3?105:k===4?78:k===5?190:125);
+      const prop={kind:k,color,x:virtualWidth+35,y:baseY+(Math.random()*70-35),w:variant===1?72:variant===2?54:86,h:variant===0?58:variant===1?44:70,
+        mode:variant,life:variant===2?105:235,age:0,vx:variant===0?0:variant===1?-(2.0+k*.22):-(1.1+k*.12),phase:Math.random()*Math.PI*2};
+      boss.arenaProps.push(prop);
+    }
+    function updateAndDrawBossArenaProps(timeScale){
+      if(boss.kind<=1) return;
+      if(!boss.arenaProps) boss.arenaProps=[];
+      boss.arenaPropTimer=(boss.arenaPropTimer||0)+timeScale;
+      if(!boss.leaving && boss.arenaPropTimer>=142){boss.arenaPropTimer=0;spawnBossArenaProp();}
+      for(let i=boss.arenaProps.length-1;i>=0;i--){
+        const p=boss.arenaProps[i];p.age+=timeScale;p.life-=timeScale;p.x+=p.vx*timeScale;
+        if(p.mode===1) p.y+=Math.sin((animationFrameCount+p.phase)*.055)*.55*timeScale;
+        const fade=p.mode===2?Math.min(1,p.life/24, p.age/12):Math.min(1,p.age/14,p.life/24);
+        const pulse=.78+.12*Math.sin(animationFrameCount*.08+p.phase);
+        ctx.save();ctx.globalAlpha=Math.max(0,fade)*pulse;ctx.shadowColor=p.color;ctx.shadowBlur=16;ctx.fillStyle=p.color;ctx.strokeStyle=p.color;ctx.lineWidth=2;
+        if(p.kind===2){ // 얼음 조각
+          ctx.beginPath();ctx.moveTo(p.x+p.w/2,p.y);ctx.lineTo(p.x+p.w,p.y+p.h*.48);ctx.lineTo(p.x+p.w*.58,p.y+p.h);ctx.lineTo(p.x,p.y+p.h*.56);ctx.closePath();ctx.fill();ctx.stroke();
+        }else if(p.kind===3){ // 공허의 균열 문양
+          ctx.beginPath();ctx.moveTo(p.x+p.w*.25,p.y);ctx.lineTo(p.x+p.w*.7,p.y+p.h*.22);ctx.lineTo(p.x+p.w*.42,p.y+p.h*.52);ctx.lineTo(p.x+p.w*.78,p.y+p.h);ctx.lineTo(p.x+p.w*.2,p.y+p.h*.72);ctx.lineTo(p.x+p.w*.48,p.y+p.h*.4);ctx.closePath();ctx.stroke();
+        }else if(p.kind===4){ // 사암 바위
+          ctx.beginPath();ctx.moveTo(p.x+5,p.y+p.h);ctx.lineTo(p.x+2,p.y+p.h*.35);ctx.lineTo(p.x+p.w*.42,p.y);ctx.lineTo(p.x+p.w,p.y+p.h*.28);ctx.lineTo(p.x+p.w-7,p.y+p.h);ctx.closePath();ctx.fill();ctx.stroke();
+        }else if(p.kind===5){ // 태양 광휘 기둥(장식)
+          ctx.globalAlpha*=.72;ctx.fillRect(p.x+p.w*.38,p.y,p.w*.24,p.h);ctx.beginPath();ctx.moveTo(p.x+p.w/2,p.y-12);ctx.lineTo(p.x+p.w*.8,p.y+p.h/2);ctx.lineTo(p.x+p.w/2,p.y+p.h+12);ctx.lineTo(p.x+p.w*.2,p.y+p.h/2);ctx.closePath();ctx.stroke();
+        }else{ // 신기루 잔상
+          ctx.beginPath();ctx.moveTo(p.x,p.y+p.h*.75);ctx.quadraticCurveTo(p.x+p.w*.45,p.y-12,p.x+p.w,p.y+p.h*.25);ctx.stroke();ctx.beginPath();ctx.moveTo(p.x+8,p.y+p.h);ctx.quadraticCurveTo(p.x+p.w*.5,p.y+p.h*.2,p.x+p.w-8,p.y+p.h*.55);ctx.stroke();
+        }
+        ctx.restore();
+        // 의도적으로 충돌 판정을 두지 않습니다: 전장 분위기와 회피 동선을 강조하는 무피해 오브젝트입니다.
+        if(p.life<=0||p.x+p.w<-30)boss.arenaProps.splice(i,1);
+      }
+    }
+
+    function updateAndDrawBossHazards(timeScale){
+      if(!boss.hazards) boss.hazards=[];
+      // 1번 보스에는 신규 전장 장애물 타이머도 작동시키지 않습니다.
+      if (boss.kind <= 1) return;
+      boss.hazardTimer=(boss.hazardTimer||0)+timeScale;
+      if(!boss.leaving && boss.x<=virtualWidth-180 && boss.hazardTimer>=188){boss.hazardTimer=0;spawnBossHazard();}
+      for(let i=boss.hazards.length-1;i>=0;i--){
+        const h=boss.hazards[i];
+        if(h.delay>0){
+          h.delay=Math.max(0,h.delay-timeScale);
+          ctx.save();ctx.globalAlpha=.48+.18*Math.sin(animationFrameCount*.28);ctx.strokeStyle=h.color;ctx.lineWidth=2;ctx.setLineDash([8,6]);
+          if(h.type==='frost_gate'||h.type==='solar_pillar'){
+            ctx.strokeRect(h.x,h.y,h.w,h.h);
+            ctx.beginPath();ctx.moveTo(h.x,h.y+h.h);ctx.lineTo(h.x+h.w,h.y);ctx.stroke();
+          }else if(h.type==='wraith_meteor'||h.type==='dune_roller'){
+            ctx.beginPath();ctx.arc(h.x+h.w/2,h.y+h.h/2,h.w*.55,0,Math.PI*2);ctx.stroke();
+            ctx.beginPath();ctx.moveTo(h.x+h.w/2,h.y-22);ctx.lineTo(h.x+h.w/2,h.y+h.h+8);ctx.stroke();
+          }else ctx.strokeRect(h.x,h.y,h.w,h.h);
+          ctx.setLineDash([]);ctx.fillStyle=h.color;ctx.font='11px "Noto Serif KR"';ctx.textAlign='center';ctx.fillText('위험 예고',h.x+h.w/2,h.y-8);ctx.restore();
+          continue;
+        }
+        h.life-=timeScale;h.x+=h.vx*timeScale;
+        if(h.type==='wraith_meteor') h.y+=h.vy*timeScale;
+        ctx.save();ctx.shadowColor=h.color;ctx.shadowBlur=14;ctx.fillStyle=h.color;ctx.strokeStyle='#fff1d5';ctx.lineWidth=1.5;
+        if(h.type==='wraith_meteor'){
+          ctx.beginPath();ctx.moveTo(h.x+h.w*.5,h.y);ctx.lineTo(h.x+h.w,h.y+h.h*.42);ctx.lineTo(h.x+h.w*.64,h.y+h.h);ctx.lineTo(h.x+h.w*.12,h.y+h.h*.7);ctx.closePath();ctx.fill();ctx.stroke();
+        }else if(h.type==='frost_gate'){
+          ctx.fillRect(h.x,h.y,h.w,h.h);ctx.strokeRect(h.x+5,h.y+8,h.w-10,h.h-16);ctx.fillStyle='rgba(255,255,255,.45)';ctx.fillRect(h.x+8,h.y+12,5,h.h-24);
+        }else if(h.type==='void_rift'){
+          ctx.beginPath();ctx.ellipse(h.x+h.w/2,h.y+h.h/2,h.w/2,h.h/2,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.strokeStyle='#f5dfff';ctx.beginPath();ctx.ellipse(h.x+h.w/2,h.y+h.h/2,h.w*.32,h.h*.3,0,0,Math.PI*2);ctx.stroke();
+        }else if(h.type==='dune_roller'){
+          ctx.beginPath();ctx.arc(h.x+h.w/2,h.y+h.h/2,h.w*.46,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.strokeStyle='#714a2c';ctx.beginPath();ctx.moveTo(h.x+8,h.y+12);ctx.lineTo(h.x+h.w-8,h.y+h.h-12);ctx.moveTo(h.x+h.w-8,h.y+12);ctx.lineTo(h.x+8,h.y+h.h-12);ctx.stroke();
+        }else if(h.type==='solar_pillar'){
+          ctx.globalAlpha=.82;ctx.fillRect(h.x,h.y,h.w,h.h);ctx.globalAlpha=1;ctx.fillStyle='#fff9dc';ctx.fillRect(h.x+12,h.y,h.w-24,h.h);
+        }else{
+          ctx.globalAlpha=.9;ctx.fillRect(h.x,h.y,h.w,h.h);ctx.strokeRect(h.x,h.y,h.w,h.h);ctx.globalAlpha=.5;ctx.beginPath();ctx.moveTo(h.x,h.y+h.h);ctx.lineTo(h.x+h.w,h.y);ctx.stroke();
+        }
+        ctx.restore();
+        const hitPlayer=player.hitboxScale&&player.hitboxScale<1?{...player,x:player.x+player.width*(1-player.hitboxScale)/2,width:player.width*player.hitboxScale}:player;
+        if(checkCollision(hitPlayer,{x:h.x,y:h.y,width:h.w,height:h.h})){if(handlePlayerHit(boss.kind>=5?2:1,true))return;h.life=0;}
+        if(h.life<=0||h.x+h.w<-20||h.y>VIRTUAL_HEIGHT+40)boss.hazards.splice(i,1);
       }
     }
 
@@ -2533,9 +2816,18 @@
         boss.y = (VIRTUAL_HEIGHT / 2 - 50) + Math.sin(animationFrameCount * (boss.kind === 3 ? 0.075 : 0.05)) * bob;
       }
 
+      updateAndDrawBossHazards(timeScale);
+      updateAndDrawBossArenaProps(timeScale);
+      updateAndDrawBossSafePlatforms(timeScale);
+      if(boss.titleFadeTimer>0) boss.titleFadeTimer=Math.max(0,boss.titleFadeTimer-timeScale);
+
       if (boss.hp > 0 && !boss.leaving && boss.x <= virtualWidth - 180) {
         boss.shootTimer += timeScale;
-        const interval = boss.kind===1 ? Math.max(22,82*(2-(player.bossSlow||1))-boss.kind*1.2-(player.riskPower?4:0)) : Math.max(48,(boss.kind===2?76:boss.kind===3?72:boss.kind===4?74:boss.kind===5?70:68)*(2-(player.bossSlow||1))-(player.riskPower?3:0));
+        const attackCycleStep=boss.attackStep%4;
+        const bossAttackCadence={2:[76,92,108,148],3:[72,88,104,144],4:[78,94,110,150],5:[70,86,102,142],6:[68,84,100,140]};
+        // 2~6번 보스는 단계가 높을수록 조금 빨라지되, 최저 간격을 보장해 회피 시간을 남깁니다.
+        const laterBossInterval=boss.kind>1 ? Math.max(58,(bossAttackCadence[boss.kind]||[72,88,104,144])[attackCycleStep]*(2-(player.bossSlow||1))*(1-(boss.kind-2)*.018)-(player.riskPower?2:0)) : 0;
+        const interval = boss.kind===1 ? Math.max(22,82*(2-(player.bossSlow||1))-boss.kind*1.2-(player.riskPower?4:0)) : laterBossInterval;
         if (boss.shootTimer > interval) {
           boss.shootTimer = 0;
           boss.attackStep++;
@@ -2544,48 +2836,52 @@
             const spawnCount = (score >= 5000) ? 3 : (score >= 3000) ? 2 : 1;
             const r = Math.random();
             const targetY = (r < 0.33) ? groundY - 20 : (r < 0.66) ? groundY - 40 : groundY - 110;
-            boss.projectiles.push({x:boss.x,y:targetY,width:50,height:16,speed:currentGameSpeed*.4+(bossLevel*.34),type:'classic'});
-            if(spawnCount>=2){const targetY2=Math.random()<.5?groundY-40:groundY-20;boss.projectiles.push({x:boss.x+60,y:targetY2,width:50,height:16,speed:currentGameSpeed*.3+(bossLevel*.3),type:'classic'});}
-            if(spawnCount===3){const targetY3=Math.random()<.5?groundY-110:groundY-40;boss.projectiles.push({x:boss.x+120,y:targetY3,width:50,height:16,speed:currentGameSpeed*.25+(bossLevel*.25),type:'classic'});}
+            boss.projectiles.push({x:boss.x,y:targetY,width:50,height:16,speed:currentGameSpeed*.4+(bossLevel*.34),type:'classic',delay:0});
+            if(spawnCount>=2){const targetY2=Math.random()<.5?groundY-40:groundY-20;boss.projectiles.push({x:boss.x+60,y:targetY2,width:50,height:16,speed:currentGameSpeed*.3+(bossLevel*.3),type:'classic',delay:0});}
+            if(spawnCount===3){const targetY3=Math.random()<.5?groundY-110:groundY-40;boss.projectiles.push({x:boss.x+120,y:targetY3,width:50,height:16,speed:currentGameSpeed*.25+(bossLevel*.25),type:'classic',delay:0});}
           } else {
             // 보스 2~6: 각 보스는 서로 겹치지 않는 기본 공격 3종과 고유 특수 공격 1종을 순환합니다.
-            // delay는 공격 예고 시간입니다. 예고 중에는 충돌하지 않아 플레이어가 회피할 수 있습니다.
+            // 모든 공격은 기본 42프레임 예고 후 활성화됩니다. 넓은 공격은 더 긴 예고를 주며, 통과 가능한 간격을 남깁니다.
             const laneY = [groundY-25, groundY-76, groundY-132];
             const step = (boss.attackStep-1)%4;
-            const add = (x,y,w,h,speed,type,extra={}) => boss.projectiles.push({x,y,width:w,height:h,speed,type,delay:extra.delay||0,vy:extra.vy||0,shape:extra.shape||'orb',color:extra.color||'#ffffff'});
+            // 일반 공격은 피해 1, 고유 특수 공격(4번째)은 피해 2.
+            // 탄속은 보스 단계별 상한을 두어 화면을 가로지르는 즉사급 속도를 방지합니다.
+            const speedCap = 8.2 + (boss.kind-2)*0.35;
+            const add = (x,y,w,h,speed,type,extra={}) => boss.projectiles.push({x,y,width:w,height:h,speed:Math.min(speedCap,speed*(step===3?.90:1)),type,delay:extra.delay ?? 48,vy:extra.vy||0,shape:extra.shape||'orb',color:extra.color||'#ffffff',damage:extra.damage??(step===3?2:1),special:step===3});
             const centerY = boss.y + boss.height/2;
             if (boss.kind === 2) {
-              if(step===0) add(boss.x,laneY[(boss.attackStep)%3],24,54,currentGameSpeed*.48+3.4,'frost_lance',{shape:'shard',color:'#8cf7ff',delay:18});
-              else if(step===1) [-1,0,1].forEach((v)=>add(boss.x,centerY+v*24,22,22,currentGameSpeed*.55+3.2,'frost_burst',{shape:'snow',color:'#b9faff',vy:v*.55}));
-              else if(step===2) add(boss.x,groundY-38,118,30,currentGameSpeed*.42+3,'glacier_roll',{shape:'wave',color:'#53c9e8',delay:12});
-              else { [0,1].forEach((n)=>add(boss.x+n*65, laneY[(boss.attackStep+n)%3],34,150,currentGameSpeed*.46+3.1,'ice_prison',{shape:'pillar',color:'#8cf7ff',delay:42})); }
+              if(step===0) add(boss.x,laneY[(boss.attackStep)%3],24,54,currentGameSpeed*.48+3.4,'frost_lance',{shape:'shard',color:'#8cf7ff',delay:42});
+              else if(step===1) [-1,0,1].forEach((v)=>add(boss.x,centerY+v*24,22,22,currentGameSpeed*.42+2.8,'frost_burst',{shape:'snow',color:'#b9faff',vy:v*.55}));
+              else if(step===2) add(boss.x,groundY-38,118,30,currentGameSpeed*.42+3,'glacier_roll',{shape:'wave',color:'#53c9e8',delay:38});
+              else { [0,1].forEach((n)=>add(boss.x+n*132, groundY-150,34,150,currentGameSpeed*.40+2.8,'ice_prison',{shape:'pillar',color:'#8cf7ff',delay:42})); }
             } else if (boss.kind === 3) {
-              if(step===0) add(boss.x,centerY-14,30,30,currentGameSpeed*.55+4.1,'void_orb',{shape:'orb',color:'#c18cff',vy:Math.max(-1.4,Math.min(1.4,(player.y-centerY)/70))});
-              else if(step===1) add(boss.x,centerY-46,76,18,currentGameSpeed*.62+4.2,'rift_blade',{shape:'slash',color:'#ed8cff',vy:.7});
+              if(step===0) add(boss.x,centerY-14,30,30,currentGameSpeed*.42+3.2,'void_orb',{shape:'orb',color:'#c18cff',vy:Math.max(-1.4,Math.min(1.4,(player.y-centerY)/70))});
+              else if(step===1) add(boss.x,centerY-46,76,18,currentGameSpeed*.46+3.2,'rift_blade',{shape:'slash',color:'#ed8cff',vy:.7});
               else if(step===2) [-1,1].forEach(v=>add(boss.x,centerY+v*30,28,48,currentGameSpeed*.5+3.8,'gravity_shard',{shape:'shard',color:'#9b6be8',vy:v*1.5}));
-              else add(boss.x,groundY-155,92,155,currentGameSpeed*.38+2.8,'void_rift',{shape:'rift',color:'#d56cff',delay:48});
+              else add(boss.x,groundY-30,92,30,currentGameSpeed*.38+2.8,'void_rift',{shape:'rift',color:'#d56cff',delay:48});
             } else if (boss.kind === 4) {
               if(step===0) add(boss.x,groundY-31,116,31,currentGameSpeed*.5+3.7,'dune_surge',{shape:'wave',color:'#d49a54'});
-              else if(step===1) add(boss.x,groundY-112,34,112,currentGameSpeed*.46+3.2,'sand_cleaver',{shape:'pillar',color:'#d9a45c',delay:22});
-              else if(step===2) add(boss.x,centerY-22,52,44,currentGameSpeed*.52+3.8,'boulder_toss',{shape:'rock',color:'#c28b58',vy:.8});
-              else [0,1,2].forEach(n=>add(boss.x+n*68,groundY-165,30,165,currentGameSpeed*.42+3,'buried_spire',{shape:'pillar',color:'#e2b66e',delay:52}));
+              else if(step===1) add(boss.x,groundY-112,34,112,currentGameSpeed*.46+3.2,'sand_cleaver',{shape:'pillar',color:'#d9a45c',delay:42});
+              else if(step===2) add(boss.x,centerY-22,52,44,currentGameSpeed*.42+3.0,'boulder_toss',{shape:'rock',color:'#c28b58',vy:.8});
+              else [0,1,2].forEach(n=>add(boss.x+n*92,groundY-165,26,165,currentGameSpeed*.38+2.7,'buried_spire',{shape:'pillar',color:'#e2b66e',delay:52}));
             } else if (boss.kind === 5) {
-              if(step===0) add(boss.x,laneY[boss.attackStep%3],128,18,currentGameSpeed*.56+4,'solar_ray',{shape:'beam',color:'#ffe28a',delay:24});
-              else if(step===1) add(boss.x,centerY-20,42,42,currentGameSpeed*.48+3.7,'sun_core',{shape:'sun',color:'#ffd45f',vy:.65});
+              if(step===0) add(boss.x,laneY[boss.attackStep%3],128,18,currentGameSpeed*.56+4,'solar_ray',{shape:'beam',color:'#ffe28a',delay:42});
+              else if(step===1) add(boss.x,centerY-20,42,42,currentGameSpeed*.40+2.8,'sun_core',{shape:'sun',color:'#ffd45f',vy:.65});
               else if(step===2) [0,1].forEach(n=>add(boss.x+n*42,groundY-130-n*22,26,26,currentGameSpeed*.52+3.8,'flare_drop',{shape:'spark',color:'#fff0a1',vy:1.3}));
-              else [0,1,2].forEach(n=>add(boss.x+n*60,laneY[n],26,148,currentGameSpeed*.44+3.1,'judgement_columns',{shape:'beam',color:'#fff0a1',delay:55}));
+              else [0,1,2].forEach(n=>add(boss.x+n*82,laneY[n],24,148,currentGameSpeed*.38+2.7,'judgement_columns',{shape:'beam',color:'#fff0a1',delay:55}));
             } else {
-              if(step===0) add(boss.x,centerY-12,30,24,currentGameSpeed*.58+4.2,'mirage_dart',{shape:'diamond',color:'#75ead9',vy:Math.max(-1.6,Math.min(1.6,(player.y-centerY)/58))});
-              else if(step===1) [-1,1].forEach(v=>add(boss.x,centerY+v*38,64,16,currentGameSpeed*.64+4.4,'afterimage_slash',{shape:'slash',color:'#7fffe9',vy:v*.45}));
-              else if(step===2) [0,1,2].forEach(n=>add(boss.x,centerY+(n-1)*34,24,24,currentGameSpeed*.5+3.8,'mirror_shards',{shape:'diamond',color:'#8af8e7',vy:(n-1)*1.25}));
-              else add(boss.x,groundY-148,104,148,currentGameSpeed*.42+3,'mirage_wall',{shape:'wall',color:'#73d9ce',delay:50});
+              if(step===0) add(boss.x,centerY-12,30,24,currentGameSpeed*.42+3.0,'mirage_dart',{shape:'diamond',color:'#75ead9',vy:Math.max(-1.6,Math.min(1.6,(player.y-centerY)/58))});
+              else if(step===1) [-1,1].forEach(v=>add(boss.x,centerY+v*38,64,16,currentGameSpeed*.46+3.0,'afterimage_slash',{shape:'slash',color:'#7fffe9',vy:v*.45}));
+              else if(step===2) [0,1,2].forEach(n=>add(boss.x,centerY+(n-1)*34,24,24,currentGameSpeed*.40+2.8,'mirror_shards',{shape:'diamond',color:'#8af8e7',vy:(n-1)*1.25}));
+              else [0,1,2].forEach(n=>add(boss.x+n*88,groundY-132,26,132,currentGameSpeed*.38+2.7,'mirage_wall',{shape:'wall',color:'#73d9ce',delay:54}));
             }
           }
         }
       } else if (!boss.leaving && boss.hp <= 0) {
         boss.active = false;
         boss.projectiles = [];
-        bossWarningUI.classList.remove('warning-active');
+        boss.hazards = [];
+        bossWarningUI.classList.remove('warning-active','boss-warning-modern');
         showItemReward();
         return;
       }
@@ -2799,9 +3095,12 @@
         ctx.font = 'bold 15px "Noto Serif KR"';
         const bossPalette = {1:'#ff6b83',2:'#8cf7ff',3:'#e5a0ff',4:'#e7b36d',5:'#ffe08a',6:'#82f2df'};
         const bossTitles = {1:'SCARLET WRAITH',2:'FROST WARDEN',3:'VOID SOVEREIGN',4:'DUNE COLOSSUS',5:'SOLAR JUDGEMENT',6:'MIRAGE STALKER'};
+        const titleAlpha=boss.kind===1?1:Math.min(1,(boss.titleFadeTimer||0)/210);
+        ctx.globalAlpha=titleAlpha;
         ctx.fillStyle = bossPalette[boss.kind] || '#ffffff';
         const title = bossTitles[boss.kind] || 'UNKNOWN';
         ctx.fillText(title, bx + boss.width / 2, by - 51);
+        ctx.globalAlpha=1;
       }
 
       for (let i = boss.projectiles.length - 1; i >= 0; i--) {
@@ -2877,8 +3176,11 @@
         }
         ctx.restore();
 
-        if (p.delay<=0 && checkCollision(player.hitboxScale&&player.hitboxScale<1?{...player,x:player.x+player.width*(1-player.hitboxScale)/2,width:player.width*player.hitboxScale}:player, p)) {
-          if(handlePlayerHit()) return;
+        if ((p.delay ?? 0)<=0 && checkCollision(player.hitboxScale&&player.hitboxScale<1?{...player,x:player.x+player.width*(1-player.hitboxScale)/2,width:player.width*player.hitboxScale}:player, p)) {
+          if(handlePlayerHit(p.damage||1,true)) return;
+          // 보호막·무적 시간으로 막힌 탄환도 즉시 제거해 같은 탄환이 재충돌하지 않게 합니다.
+          boss.projectiles.splice(i,1);
+          continue;
         }
         if (p.x + p.width < 0 || p.y > VIRTUAL_HEIGHT + 40 || p.y + p.height < -40) {
           boss.projectiles.splice(i, 1);
@@ -2891,7 +3193,7 @@
         bossLevel++;
         nextBossScore = bossScoreMilestones[bossLevel-1] ?? Infinity;
         dayCycleStartScore = score;
-        bossWarningUI.classList.remove('warning-active');
+        bossWarningUI.classList.remove('warning-active','boss-warning-modern');
         bossDawnTransition = 0;
       }
     }
@@ -2934,7 +3236,11 @@
 
     function showItemReward(){
       gameState='ITEM_SELECT';
-      const pool=itemCatalog.filter(it=>!selectedItemIds.includes(it.id));
+      // 활용도가 낮거나 조건이 까다로운 선택은 제외하고 생존·전투에 직접 도움 되는 보상으로 구성합니다.
+      const excludedRewardIds = ['anchor','cloak','overload'];
+      // 이미 선택한 보상도 다시 등장할 수 있습니다. 중첩 가능한 효과는 누적되고,
+      // 소모형 효과는 다시 선택할 때마다 충전/재적용됩니다.
+      const pool=itemCatalog.filter(it=>!excludedRewardIds.includes(it.id));
       const picks=[];
       while(picks.length<3 && pool.length){const idx=Math.floor(Math.random()*pool.length);picks.push(pool.splice(idx,1)[0]);}
       rewardChoices.innerHTML='';
@@ -2946,17 +3252,37 @@
       rewardScreen.classList.remove('hidden');
     }
     function chooseReward(item){
-      if(!item || selectedItemIds.includes(item.id))return;
-      item.apply();selectedItemIds.push(item.id);
+      if(!item)return;
+      // 같은 보상을 다시 선택해도 막지 않습니다. 각 보상의 apply()가 효과를 누적하거나 재충전합니다.
+      item.apply();
       if(!['vitality','guard','heart','flare','phoenix'].includes(item.id)) addRewardNotice(item.name,'passive');
       rewardScreen.classList.add('hidden');
       bossDawnTransition=0;
+      // 여섯 번째 최종 보스 보상 선택을 마치면 클리어 화면으로 전환합니다.
+      if(bossLevel>=6){showGameClear();return;}
       bossLevel++;
       nextBossScore=bossScoreMilestones[bossLevel-1] ?? Infinity;
       dayCycleStartScore=score;
       gameState='PLAYING';
       scoreValueUI.innerText=score;
     }
+
+    function showGameClear(){
+      gameState='CLEAR';
+      const clear=document.getElementById('gameClearScreen');
+      const scoreLabel=document.getElementById('clearScoreText');
+      if(scoreLabel) scoreLabel.textContent=`최종 점수 : ${score}점`;
+      rewardScreen.classList.add('hidden');
+      if(clear) clear.classList.remove('hidden');
+      bossWarningUI.classList.remove('warning-active','boss-warning-modern');
+      playSound('victory');
+    }
+    const clearReturnBtn=document.getElementById('clearReturnBtn');
+    if(clearReturnBtn) clearReturnBtn.addEventListener('click',()=>{
+      const clear=document.getElementById('gameClearScreen');
+      if(clear) clear.classList.add('hidden');
+      resetToStartScreen();
+    });
 
     function addScore() {
       score += (player.scoreBonus || 1);
@@ -2977,14 +3303,17 @@
       lastTime = timestamp;
       const timeScale = deltaTime / 16.67;
       animationFrameCount += timeScale;
+      if(player.hitGraceTimer>0) player.hitGraceTimer=Math.max(0,player.hitGraceTimer-timeScale);
       if(bossDawnTransition!==null){bossDawnTransition=Math.min(180,bossDawnTransition+timeScale);if(bossDawnTransition>=180)bossDawnTransition=null;}
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.scale(gameScale, gameScale);
       drawBackground();
       updateAndDrawDunes(timeScale);
-      currentGameSpeed = baseGameSpeed + (score / 170);
-      let obstacleSpeed = (score > 8000) ? (baseGameSpeed + (7000 / 400)) : currentGameSpeed;
+      // 5000점 이후 속도가 급격히 치솟던 기존 score/170 증가식을 완만한 곡선으로 변경합니다.
+      // 5000점 약 14.3, 10000점 약 17.1 수준으로 제한해 회피 반응 시간을 확보합니다.
+      currentGameSpeed = baseGameSpeed + Math.min(score,5000)/500 + Math.max(0,score-5000)/1800;
+      const obstacleSpeed = currentGameSpeed;
       if (gameState === 'PLAYING') {
         spawnObstacle(timeScale);
         if (score >= nextBossScore) {
@@ -2992,14 +3321,21 @@
           boss.active = true;
           boss.leaving = false;
           boss.kind = bossLevel;
-          // 보스 체력 밸런스: 1번째 보스는 9, 이후는 9 × 보스 단계²의 제곱식.
-          // 공격력/발사 속도 보상으로 성장 여지를 남기고, 체력만 단계별로 급격히 늘지 않도록 공식은 고정합니다.
-          boss.maxHp = 9 * boss.kind * boss.kind;
+          // 보스 체력 로직: 1번째 보스는 9, 2번째 이후는 9 × (보스 단계의 제곱).
+          // 단계별 체력: 9 / 36 / 81 / 144 / 225 / 324. 보스 단계별 공격 패턴과 보상 성장에 맞춘 고정 제곱식입니다.
+          boss.maxHp = (boss.kind === 1) ? 9 : 9 * Math.pow(boss.kind, 2);
           boss.hp = Math.max(1,boss.maxHp-(player.bossOpeningDamage||0));
           if(player.bossOpeningDamage>0){addRewardNotice('섬광 폭탄 사용 완료','used');removeRewardNotice('next-boss');}
           player.bossOpeningDamage=0;
           boss.x = virtualWidth + 100;
           boss.projectiles = [];
+          boss.hazards = [];
+          boss.arenaProps = [];
+          boss.arenaPropTimer = 0;
+          boss.safePlatforms = [];
+          boss.safePlatformTimer = boss.kind>1 ? 85 : 0;
+          boss.titleFadeTimer = boss.kind>1 ? 210 : 0;
+          boss.hazardTimer = 0;
           boss.shootTimer = 0;
           boss.attackStep = 0;
           boss.hitTimer = 0;
@@ -3016,6 +3352,7 @@
             6:'신기루 추적자 · 잔상 출현'
           };
           bossWarningUI.textContent = bossEntranceLines[boss.kind] || '보스가 나타났다';
+          bossWarningUI.classList.toggle('boss-warning-modern',boss.kind>1);
           playBossEntranceCue(boss.kind);
           bossDawnTransition = null;
           bossWarningUI.classList.add('warning-active');
@@ -3108,15 +3445,22 @@
       obstacles = [];
       nextBossScore = 1000;
       bossLevel = 1;
-      selectedItemIds = [];
       activeRewardNotices=[];bossDawnTransition=null;usedRewardNoticeTimer=0;
       rewardScreen.classList.add('hidden');
+      document.getElementById('gameClearScreen')?.classList.add('hidden');
       boss.kind = 1;
       boss.attackStep = 0;
       boss.active = false;
       boss.leaving = false;
       boss.projectiles = [];
-      bossWarningUI.classList.remove('warning-active');
+      boss.hazards = [];
+      boss.arenaProps = [];
+      boss.arenaPropTimer = 0;
+      boss.safePlatforms = [];
+      boss.safePlatformTimer = 0;
+      boss.titleFadeTimer = 0;
+      boss.hazardTimer = 0;
+      bossWarningUI.classList.remove('warning-active','boss-warning-modern');
       keyStates.moveLeft = false;
       keyStates.moveRight = false;
       player.x = 150;
@@ -3130,7 +3474,7 @@
       player.damage = 1;
       player.speedX = 8; player.shootCooldownFactor=1; player.projectileSpeed=14; player.doubleShot=false; player.piercing=false;
       player.scoreBonus=1; player.bossSlow=1; player.bossOpeningDamage=0; player.obstacleEase=1; player.hitboxScale=1;
-      player.shieldCharges=0; player.reviveCharges=0; player.airControl=1; player.gravityFactor=1; player.riskPower=false;
+      player.shieldCharges=0; player.reviveCharges=0; player.hp=player.maxHp||3; player.hitFlashTimer=0; player.hitGraceTimer=0; player.airControl=1; player.gravityFactor=1; player.riskPower=false;
       scoreValueUI.innerText = '0';
       progressBar.style.width = '0%';
       progressMarker.style.left = '0%';
@@ -3151,10 +3495,11 @@
       cancelAnimationFrame(animationId);
       startScreen.classList.remove('hidden');
       gameOverScreen.classList.add('hidden');
+      document.getElementById('gameClearScreen')?.classList.add('hidden');
       howToPlayScreen.classList.add('hidden');
       settingsScreen.classList.add('hidden');
       globalNoticeScreen.classList.add('hidden');
-      bossWarningUI.classList.remove('warning-active');
+      bossWarningUI.classList.remove('warning-active','boss-warning-modern');
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.scale(gameScale, gameScale);
@@ -3173,7 +3518,7 @@
       playerNameInput.value = '';
       recordSection.style.display = 'flex';
       gameOverScreen.classList.remove('hidden');
-      bossWarningUI.classList.remove('warning-active');
+      bossWarningUI.classList.remove('warning-active','boss-warning-modern');
       keyStates.moveLeft = false;
       keyStates.moveRight = false;
       obstacles = [];
